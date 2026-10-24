@@ -1,0 +1,29 @@
+Arad Homeward — Custom Code License
+Copyright (c) 2026 eirros. All rights reserved.
+
+This notice applies only to code and modifications owned by eirros, including
+the custom launcher, desktop trainer, local account and process management,
+and custom localization integration.
+
+The official release binaries may be downloaded and run for personal local
+use. No further permission to redistribute, sublicense, commercially use,
+or create derivative works of the custom contributions is granted by this
+notice without permission from eirros. Public source visibility does not
+constitute an open-source license.
+
+Original game programs, images, audio, fonts, protocol resources and
+third-party libraries are excluded from this notice. Their respective
+ownership and license terms remain in effect. Retain their notices.
+
+阿拉德·归途 — 自编代码许可
+Copyright (c) 2026 eirros. 保留所有权利。
+
+本声明仅适用于 eirros 享有权利的自编代码及改动，包括自编启动器、
+原生桌面修改器、本地账号与进程管理、自编本地化集成。
+
+允许下载官方发布的二进制包并进行个人本地使用。未经 eirros 许可，
+本声明不进一步授予自编改动的再分发、转许可、商业使用或制作衍生作品
+的权利。源码公开展示不代表采用开源许可。
+
+原始游戏程序、图片、音频、字体、协议资源及第三方库不适用本声明，
+其权利和许可继续以各自随附声明为准，必须保留原有声明。

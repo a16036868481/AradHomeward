@@ -1,0 +1,25 @@
+{
+  "version": "2.6.0-preview.23",
+  "checkedOn": "2026-10-24",
+  "passed": true,
+  "isolatedRuntime": true,
+  "catalogItems": 31474,
+  "freshPublicSave": true,
+  "personalAccounts": 0,
+  "personalCharacters": 0,
+  "allRuntimeHashesValid": true,
+  "languageArchiveSelectionsVerified": [
+    "zh-Hans",
+    "zh-Hant",
+    "en-US",
+    "ja-JP",
+    "ko-KR"
+  ],
+  "profileCreationAndRememberedSelection": "passed in isolated temporary fixture",
+  "certificateGenerationAndIdempotency": "passed in isolated temporary fixture",
+  "certificateMismatchRejected": true,
+  "sourceSaveUnchanged": true,
+  "nativeGuideRenders": "six demo-data images; no interactive windows shown",
+  "gameplayStartedDuringPublicPackageCheck": false,
+  "targetPcGameplayVerified": false
+}
