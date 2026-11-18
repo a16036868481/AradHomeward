@@ -4,6 +4,35 @@
 import json, re, time
 from assets import ROOT, GAME, Pvf, Npk
 
+# The legacy client lacks these frames. Use a bundled icon from the same
+# item family, or from the same avatar set and clothing slot.
+ICON_FALLBACK_ITEMS = {
+    187: 114, 188: 114,  # Title boosters.
+    3716: 3701, 3718: 3700, 3719: 3701, 3730: 3694,  # Enchantment cards.
+    3950: 3699, 3951: 3699, 3952: 3699,  # Enchantment beads.
+    7345: 7268,  # Gift box.
+    35088: 35072,  # Priest's cross.
+    43124: 43123, 43564: 43563, 44788: 44787, 45184: 45183,  # Fighter set.
+}
+
+
+def apply_icon_fallbacks(items, archives):
+    by_id = {item['id']: item for item in items}
+    repaired = []
+    for item_id, fallback_id in ICON_FALLBACK_ITEMS.items():
+        item = by_id.get(item_id)
+        if not item or not item.get('sendable') or item.get('icon'):
+            continue
+        name, index = by_id[fallback_id]['icon']
+        with archives.image(name, index) as image:
+            if not image.getbbox():
+                raise ValueError(f'Blank icon fallback for item {item_id}')
+        item['icon'] = [name, index]
+        item.pop('iconMissing', None)
+        repaired.append(item_id)
+    return repaired
+
+
 def main():
     start = time.monotonic()
     pvf = Pvf(GAME/'ACT12'/'Script.pvf')
@@ -13,7 +42,7 @@ def main():
     for category in ('equipment','stackable'):
         for id,path in re.findall(r'^\s*(\d+)\s+`([^`]+)`',pvf.text(f'{category}/{category}.lst'),re.M):
             scripts[int(id)] = f'{category}/{path.lower()}'
-    missing, found, unique = [],0,set()
+    missing, unique = [], set()
     for item in items:
         path = scripts.get(item['id'])
         if not path: continue
@@ -24,7 +53,7 @@ def main():
             name = 'sprite/' + icon[1].lower().replace('\\','/')
             index = int(icon[2])
             if name in npk.entries and index >= 0:
-                item['icon'] = [name,index]; found += 1; unique.add((name,index))
+                item['icon'] = [name,index]; unique.add((name,index))
             else: missing.append([item['id'],name,index])
         st = re.search(r'\[stackable type\]\s*`\[([^\]]+)\]`',s)
         et = re.search(r'\[equipment type\]\s*`\[([^\]]+)\]`',s)
@@ -35,7 +64,6 @@ def main():
         item['jobs'] = re.findall(r'`\[([^\]]+)\]`',jobs[1]) if jobs else []
         item['search'] = (str(item['id']) + ' ' + item['name'] + ' ' + ' '.join(item.get('aliases',[])) + ' ' + item['subtype']).casefold()
     out = ROOT/'trainer'/'catalog.json'
-    out.write_text(json.dumps(items,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
     (ROOT/'trainer'/'icon-cache').mkdir(exist_ok=True)
     # Same base/growth arithmetic used by the native engine, in its x10 units.
     cols=['max_hp','max_mp','strength','vitality','intelligence','spirit','fire_resistance','water_resistance','dark_resistance','light_resistance','inventory_limit','hp_regen','mp_regen','move_speed','attack_speed','cast_speed','hit_recovery','jump_power','weight']
@@ -76,8 +104,13 @@ def main():
     for item in items:
         if tuple(item.get('icon',[])) in invalid:
             item.pop('icon');item['iconMissing']=True
-    out.write_text(json.dumps(items,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
-    report = dict(items=len(items),with_icon=found,unique_icons=len(unique),missing=missing,decode_failures=bad,seconds=round(time.monotonic()-start,2))
+    repaired = apply_icon_fallbacks(items, npk)
+    temp = out.with_suffix('.next')
+    temp.write_text(json.dumps(items,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+    temp.replace(out)
+    report = dict(items=len(items),with_icon=sum(bool(item.get('icon')) for item in items),
+                  unique_icons=len({tuple(item['icon']) for item in items if item.get('icon')}),
+                  missing=missing,decode_failures=bad,fallback_item_ids=repaired,seconds=round(time.monotonic()-start,2))
     (ROOT/'setup'/'catalog-verification.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps({k:v if not isinstance(v,list) else len(v) for k,v in report.items()},ensure_ascii=False))
     if bad: print(json.dumps(bad[:5],ensure_ascii=False))

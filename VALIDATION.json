@@ -1,5 +1,5 @@
 {
-  "version": "2.6.0-preview.25",
+  "version": "2.6.0-preview.26",
   "checkedOn": "2026-11-19",
   "publicPackageRuntimeChecks": {
     "passed": true,
@@ -15,7 +15,7 @@
     "gameStarted": false,
     "targetComputerGameplayVerified": false
   },
-  "pinnedRuntimeFiles": 795,
+  "pinnedRuntimeFiles": 818,
   "languageArchiveSelectionsVerified": [
     "zh-Hans",
     "zh-Hant",
@@ -25,21 +25,31 @@
   ],
   "isolatedGamePlaytest": {
     "launched": true,
-    "starterQuestAccepted": true,
-    "gameplayLocale": "en-US",
-    "trainerApiChecksPassed": 66,
-    "backupRestoreVerified": true,
-    "allDungeonsPlayed": false,
-    "allLanguagesPlaytested": false
+    "locales": [
+      "en-US",
+      "ko-KR"
+    ],
+    "seriaRoomObserved": true,
+    "onlineCharacterAndInventoryCasesPassed": 5,
+    "emptyDeliveryLettersRemoved": true,
+    "classChangeCaptionsObserved": [
+      "en-US",
+      "ko-KR"
+    ],
+    "desktopStatusAndValuesReadBack": true,
+    "automaticExitAndStandaloneSaveVerified": true,
+    "dungeonEntryAndReturnCoverage": "relay regression tests",
+    "allDungeonsPlayed": false
   },
+  "regressionTestsPassed": 8,
   "contentChecks": {
     "catalogueItems": 31474,
+    "itemsWithIconDefinition": 31474,
     "uniqueIconFramesPassed": 15297,
+    "fallbackItemIconsTestedThroughEditor": 15,
+    "localizedSpriteFramesDecoded": 360,
+    "textRepairs": 227,
     "questDefinitionsChecked": 2172
   },
-  "knownIssues": [
-    "Online trainer operations can be blocked in Seria's room.",
-    "15 sendable items have no defined icon.",
-    "Some original bitmap text remains."
-  ]
+  "remainingScope": "Some original text, artwork captions, and voices are still present outside the verified screens."
 }

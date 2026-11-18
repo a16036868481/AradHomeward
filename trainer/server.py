@@ -281,8 +281,9 @@ async def give_items(body):
             async with s.operation_lock:
                 async with s.lock:await s.barrier()
                 for i,(item,count,level,type,value) in enumerate(requests):
-                    mail=await send_one(i,item,count,level,type,value);sent.append(mail)
                     async with s.lock:
+                        s.require_town()
+                        mail=await send_one(i,item,count,level,type,value);sent.append(mail)
                         try:
                             await s.inject(98,struct.pack('<I',mail))
                         except Exception:

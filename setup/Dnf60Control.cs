@@ -19,8 +19,8 @@ using Dnf60Lifecycle;
 [assembly: System.Reflection.AssemblyTitle("阿拉德·归途 · 会话服务")]
 [assembly: System.Reflection.AssemblyCompany("eirros")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: System.Reflection.AssemblyVersion("2.6.0.25")]
-[assembly: System.Reflection.AssemblyFileVersion("2.6.0.25")]
+[assembly: System.Reflection.AssemblyVersion("2.6.0.26")]
+[assembly: System.Reflection.AssemblyFileVersion("2.6.0.26")]
 
 internal static class Dnf60Control
 {

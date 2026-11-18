@@ -18,6 +18,8 @@ DEC = bytes((((v<<6)|(v>>2))&255)^0xb5 for v in range(256))
 LOG = logging.getLogger('dnf60.bridge')
 REPLY_TIMEOUT_SECONDS = 8
 DISCONNECTED = (asyncio.IncompleteReadError, ConnectionError, asyncio.CancelledError)
+# Native notifications for dungeon info and map start, including tower and altar.
+DUNGEON_LOAD_NOTICES = {28, 29, 154, 155, 225, 226}
 
 def aes(data, encrypt=False):
     c = Cipher(algorithms.AES(KEY),modes.ECB())
@@ -152,7 +154,7 @@ class Session:
             encrypted=await self.reader.readexactly(length-13)
             id=struct.unpack_from('<H',h,1)[0]
             async with self.lock:
-                if id in (1,4,7,15,16,38,40,45,296):
+                if id in (1,4,7):
                     body=aes(encrypted) if encrypted else b''
                     self.observe_command(id,body)
                 h=bytearray(h); struct.pack_into('<H',h,11,self.seq); self.seq=(self.seq+1)&65535
@@ -181,18 +183,33 @@ class Session:
             type,id=struct.unpack_from('<BH',h)
             if type==1:
                 body=encrypted.translate(DEC)
-                if id==4 and body[:1]==b'\1':
-                    self.character_id=u32(body,1); self.actor_id=struct.unpack_from('<H',body,9)[0]; self.in_dungeon=False
-                    LOG.info('local online character=%s account=%s',self.character_id,self.account_id)
-                if id in (15,16) and body[:1]==b'\1': self.in_dungeon=True
-                if id==38 and body[:2]==b'\0\0': self.in_dungeon=False
+                self.observe_reply(id, body)
                 if self.complete_helper_reply(id, body):
                     continue
-            elif type==0 and id==3:
-                body=encrypted.translate(DEC)
-                if len(body)>=4 and body[0]==1 and struct.unpack_from('<H',body,1)[0]==self.actor_id and body[3]==0:
-                    self.in_dungeon=False
+            elif type==0 and (id==3 or id in DUNGEON_LOAD_NOTICES):
+                self.observe_scene(id, encrypted.translate(DEC))
             self.writer.write(h+encrypted);await self.writer.drain()
+
+    def observe_reply(self, opcode, body):
+        if opcode == 4 and len(body) >= 11 and body[0] == 1:
+            self.character_id = u32(body, 1)
+            self.actor_id = struct.unpack_from('<H', body, 9)[0]
+            self.in_dungeon = False
+            LOG.info('local online character=%s account=%s', self.character_id, self.account_id)
+        elif opcode == 38 and body[:2] == b'\0\0':
+            # The native server acknowledges area changes only after leaving a dungeon.
+            self.in_dungeon = False
+
+    def observe_scene(self, opcode, body):
+        if not self.character_id:
+            return
+        if opcode in DUNGEON_LOAD_NOTICES:
+            self.in_dungeon = True
+        elif (opcode == 3 and len(body) >= 4 and body[0] == 1
+              and struct.unpack_from('<H', body, 1)[0] == self.actor_id
+              and body[3] in (0, 5)):
+            # Town includes the player's private room and the siege-ghost state.
+            self.in_dungeon = False
 
     def complete_helper_reply(self, opcode, body):
         future = self.pending.pop(opcode, None)
@@ -229,9 +246,17 @@ class Session:
 
     async def gm(self,body): return await self.inject(65,body)
 
+    def require_town(self):
+        if self.closed or not self.character_id:
+            raise ConnectionError('游戏连接已断开')
+        if self.in_dungeon:
+            raise RuntimeError('请回到城镇后使用在线修改')
+
     async def barrier(self):
-        if self.in_dungeon: raise RuntimeError('请回到城镇后使用在线修改')
+        self.require_town()
         await self.gm(b'\0')
+        # A previously submitted dungeon load can arrive before this reply.
+        self.require_town()
 
     async def refresh(self):
         with connect_db() as db:

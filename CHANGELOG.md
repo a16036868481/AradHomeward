@@ -1,5 +1,14 @@
 # Changes
 
+## v2.6.0-preview.26 — 2026-11-19
+
+- Online edits use native dungeon loading and town-return events to determine when editing is available. Tested gold, Cera, level, skill points, fatigue, class changes, bulk grants, and inventory edits in Seria's room.
+- All 31,474 catalogue entries display an icon. The 15 entries whose frames are absent from the installed client use an icon from the same item family or avatar set.
+- Localized the PIN and guild menu labels, class advancement and awakening panels, and replay buttons. Added 227 text repairs across the Traditional Chinese, English, Japanese, and Korean packs.
+- The editor's character status adjusts to the translated label width. Local accounts use name-only sign-in.
+
+Some original game screens and dialogue still contain source-language text. The launcher shows text coverage for the selected language.
+
 ## v2.6.0-preview.25 — 2026-11-19
 
 - Exit snapshots are generated and verified as standalone SQLite databases. Missing saves are reported as errors.

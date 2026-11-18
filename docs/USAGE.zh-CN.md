@@ -4,11 +4,11 @@
 
 ## 1. 下载并完整解压
 
-打开 [Releases](https://github.com/a16036868481/AradHomeward/releases)，在 **Assets** 中下载 `AradHomeward-v2.6.0-preview.25-win-x64.zip`。`SHA256SUMS.txt` 是压缩包的校验文件。
+打开 [Releases](https://github.com/a16036868481/AradHomeward/releases)，在 **Assets** 中下载 `AradHomeward-v2.6.0-preview.26-win-x64.zip`。`SHA256SUMS.txt` 是压缩包的校验文件。
 
 完整解压到有写入权限的本地目录，例如 `D:\Games\AradHomeward`。四个 EXE 入口必须和 `app` 文件夹放在一起，不能只移动一个程序，也不要在压缩包里直接打开。本包需要 Windows 10/11 64 位。
 
-需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.25-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
+需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.26-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
 
 ## 2. 第一次创建账号
 
@@ -30,7 +30,7 @@
 
 ## 4. 游戏与修改器
 
-进入游戏后新建或选择角色。修改器会自动一起打开，控制台和本地服务隐藏在后台。进行在线修改时先停留在城镇，在修改器右上角选择要管理的角色。
+进入游戏后新建或选择角色。修改器会随游戏打开。在城镇或赛丽亚房间时，可从修改器右上角选择角色并在线修改。
 
 ![物品图标与多选页面示例](images/trainer-items-zh-Hans.png)
 

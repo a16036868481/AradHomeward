@@ -24,6 +24,8 @@ The script uses the Windows .NET Framework 4.x C# compiler. It builds the portab
 
 This runtime is tied to the bundled ACT12 binary layout. Replacing the client, changing hook addresses or mixing unrelated NPK patches requires a new compatibility review. Do not silently refresh hashes for unreviewed files. Rebuild the release resource manifest and validate all five language selections after runtime changes.
 
+To rebuild the preview.26 resource changes against a clean preview.25 staging copy, use a Python environment with Pillow. Run `setup/localization/repair_text_packs.py <app> setup/localization/locale_text_repairs.json`, then run `localize_popup_captions.py <app>` and `localize_class_captions.py <app>` from that directory. The sprite generators read the bundled base archives and verify the previous language variants before adding captions. Refresh the runtime hashes for the resulting resource files as part of packaging.
+
 ## Layout
 
 | Source | Responsibility |

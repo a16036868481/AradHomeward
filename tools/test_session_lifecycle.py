@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import sqlite3
+import struct
 import sys
 import tempfile
 import unittest
@@ -41,6 +42,39 @@ class Writer:
 
 
 class ConnectionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_selection_reply_allows_room_edit_until_dungeon_load(self):
+        session = bridge.Session(bridge.Bridge(), None, Writer(), 7010)
+        session.observe_reply(4, struct.pack('<BIIH', 1, 7, 0, 42))
+        session.gm = AsyncMock()
+        for opcode in (15, 16):
+            session.observe_reply(opcode, b'\x01')
+        session.observe_scene(3, struct.pack('<BHB', 1, 42, 1))
+        await session.barrier()
+        for load in sorted(bridge.DUNGEON_LOAD_NOTICES):
+            session.observe_scene(load, b'dungeon')
+            session.observe_scene(3, struct.pack('<BHB', 1, 43, 0))
+            with self.assertRaisesRegex(RuntimeError, '请回到城镇'):
+                await session.barrier()
+            session.observe_scene(3, struct.pack('<BHB', 1, 42, 0))
+            await session.barrier()
+        self.assertEqual(session.gm.await_count, 1 + len(bridge.DUNGEON_LOAD_NOTICES))
+
+    async def test_pending_load_blocks_edit_after_native_round_trip(self):
+        session = bridge.Session(bridge.Bridge(), None, Writer(), 7010)
+        session.observe_reply(4, struct.pack('<BIIH', 1, 7, 0, 42))
+
+        async def finish_loading(_):
+            session.observe_scene(29, b'dungeon map')
+
+        session.gm = finish_loading
+        with self.assertRaisesRegex(RuntimeError, '请回到城镇'):
+            await session.barrier()
+        session.observe_reply(38, b'\0\0')
+        session.require_town()
+        session.observe_command(7, b'')
+        with self.assertRaises(ConnectionError):
+            session.require_town()
+
     async def test_both_directions_disconnect_without_unhandled_task(self):
         client, server = Writer(), Writer()
         session = bridge.Session(bridge.Bridge(), None, client, 7010)

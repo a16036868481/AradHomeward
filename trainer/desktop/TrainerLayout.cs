@@ -69,7 +69,16 @@ namespace Dnf60Desktop
             meta.Location=new Point(68,39);meta.AutoSize=false;meta.AutoEllipsis=true;meta.Size=new Size(600,20);context.Controls.Add(meta);
             roleState.Location=new Point(690,22);roleState.Font=new Font(Font.FontFamily,9);context.Controls.Add(roleState);
             var chooseRole=Theme.Button("切换角色",(s,e)=>ShowRolePicker(),false);chooseRole.AutoSize=false;chooseRole.Size=new Size(148,33);context.Controls.Add(chooseRole);
-            context.Resize+=(s,e)=>{chooseRole.Location=new Point(context.Width-164,18);roleState.Location=new Point(Math.Max(330,context.Width-314),27);title.Width=Math.Max(210,context.Width-350);meta.Width=Math.Max(210,context.Width-335);};
+            Action alignContext=()=>{
+                chooseRole.Location=new Point(context.Width-164,18);
+                int stateLeft=chooseRole.Left-roleState.PreferredWidth-14;
+                roleState.Location=new Point(stateLeft,27);
+                title.Width=Math.Max(0,stateLeft-title.Left-12);
+                meta.Width=Math.Max(0,stateLeft-meta.Left-12);
+            };
+            context.Resize+=(s,e)=>alignContext();
+            roleState.TextChanged+=(s,e)=>alignContext();
+            alignContext();
             subNavigation.Dock=DockStyle.Top;subNavigation.Height=48;subNavigation.Padding=new Padding(0,0,0,8);subNavigation.WrapContents=false;subNavigation.BackColor=Theme.Bg;
             status.Dock=DockStyle.Fill;status.TextAlign=ContentAlignment.MiddleLeft;status.AutoEllipsis=true;status.Font=new Font(Font.FontFamily,8.5f);status.ForeColor=Theme.Muted;status.Text=TrainerLanguage.T("正在连接本机服务…");status.AccessibleName=TrainerLanguage.T("操作状态");status.DoubleClick+=(s,e)=>{if(status.Text.Length>70)AdminUi.Dialog(this,TrainerLanguage.T("操作详情"),status.Text);};
             var bottom=new Panel {Dock=DockStyle.Bottom,Height=36};bottom.Controls.Add(status);bottom.Controls.Add(activity);

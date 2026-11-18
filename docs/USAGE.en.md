@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Open [Releases](https://github.com/a16036868481/AradHomeward/releases) and download `AradHomeward-v2.6.0-preview.25-win-x64.zip` from **Assets**, together with `SHA256SUMS.txt` if you want to verify the download. Extract the whole ZIP to a writable local folder such as `D:\Games\AradHomeward`.
+Open [Releases](https://github.com/a16036868481/AradHomeward/releases) and download `AradHomeward-v2.6.0-preview.26-win-x64.zip` from **Assets**, together with `SHA256SUMS.txt` if you want to verify the download. Extract the whole ZIP to a writable local folder such as `D:\Games\AradHomeward`.
 
 Keep the `app` folder next to all four EXE entries. Do not run from inside the ZIP, move just one EXE, or install into a protected system folder. The download is for Windows 10/11 x64; it is not an Android, macOS or Linux build.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.25-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.26-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Create a local account
 
@@ -30,7 +30,7 @@ This is a translation preview: some original text, bitmap text and voices remain
 
 ## 4. Play and use the trainer
 
-Create or choose a character in the game. The native trainer opens with the game; the console and local services stay in the background. Stay in town while making supported online changes, and choose the target character at the top right of the trainer.
+Create or choose a character in the game. The native trainer opens with the game. You can make supported online edits in town or in Seria's room. Choose your character at the top right of the trainer.
 
 ![Items page with example icons](images/trainer-items-en-US.png)
 
