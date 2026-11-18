@@ -1,13 +1,21 @@
 {
-  "version": "2.6.0-preview.23",
-  "checkedOn": "2026-10-24",
-  "passed": true,
-  "isolatedRuntime": true,
-  "catalogItems": 31474,
-  "freshPublicSave": true,
-  "personalAccounts": 0,
-  "personalCharacters": 0,
-  "allRuntimeHashesValid": true,
+  "version": "2.6.0-preview.25",
+  "checkedOn": "2026-11-19",
+  "publicPackageRuntimeChecks": {
+    "passed": true,
+    "isolatedRuntime": true,
+    "catalogItems": 31474,
+    "allRuntimeHashesValid": true,
+    "emptyShippedAccounts": true,
+    "freshProfileCreation": "passed in temporary fixture",
+    "localCertificateCreation": "passed in temporary fixture",
+    "certificateMismatchRejected": true,
+    "shippedDatabaseUnchanged": true,
+    "servicesStarted": false,
+    "gameStarted": false,
+    "targetComputerGameplayVerified": false
+  },
+  "pinnedRuntimeFiles": 795,
   "languageArchiveSelectionsVerified": [
     "zh-Hans",
     "zh-Hant",
@@ -15,11 +23,23 @@
     "ja-JP",
     "ko-KR"
   ],
-  "profileCreationAndRememberedSelection": "passed in isolated temporary fixture",
-  "certificateGenerationAndIdempotency": "passed in isolated temporary fixture",
-  "certificateMismatchRejected": true,
-  "sourceSaveUnchanged": true,
-  "nativeGuideRenders": "six demo-data images; no interactive windows shown",
-  "gameplayStartedDuringPublicPackageCheck": false,
-  "targetPcGameplayVerified": false
+  "isolatedGamePlaytest": {
+    "launched": true,
+    "starterQuestAccepted": true,
+    "gameplayLocale": "en-US",
+    "trainerApiChecksPassed": 66,
+    "backupRestoreVerified": true,
+    "allDungeonsPlayed": false,
+    "allLanguagesPlaytested": false
+  },
+  "contentChecks": {
+    "catalogueItems": 31474,
+    "uniqueIconFramesPassed": 15297,
+    "questDefinitionsChecked": 2172
+  },
+  "knownIssues": [
+    "Online trainer operations can be blocked in Seria's room.",
+    "15 sendable items have no defined icon.",
+    "Some original bitmap text remains."
+  ]
 }

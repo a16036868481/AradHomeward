@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Open [Releases](https://github.com/a16036868481/AradHomeward/releases) and download `AradHomeward-v2.6.0-preview.23-win-x64.zip` from **Assets**, together with `SHA256SUMS.txt` if you want to verify the download. Extract the whole ZIP to a writable local folder such as `D:\Games\AradHomeward`.
+Open [Releases](https://github.com/a16036868481/AradHomeward/releases) and download `AradHomeward-v2.6.0-preview.25-win-x64.zip` from **Assets**, together with `SHA256SUMS.txt` if you want to verify the download. Extract the whole ZIP to a writable local folder such as `D:\Games\AradHomeward`.
 
 Keep the `app` folder next to all four EXE entries. Do not run from inside the ZIP, move just one EXE, or install into a protected system folder. The download is for Windows 10/11 x64; it is not an Android, macOS or Linux build.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.23-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.25-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Create a local account
 

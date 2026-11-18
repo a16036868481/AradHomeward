@@ -4,11 +4,11 @@
 
 ## 1. 下载并完整解压
 
-打开 [Releases](https://github.com/a16036868481/AradHomeward/releases)，在 **Assets** 中下载 `AradHomeward-v2.6.0-preview.23-win-x64.zip`。`SHA256SUMS.txt` 是校验文件；GitHub 自动生成的 Source code 不含完整游戏。
+打开 [Releases](https://github.com/a16036868481/AradHomeward/releases)，在 **Assets** 中下载 `AradHomeward-v2.6.0-preview.25-win-x64.zip`。`SHA256SUMS.txt` 是压缩包的校验文件。
 
 完整解压到有写入权限的本地目录，例如 `D:\Games\AradHomeward`。四个 EXE 入口必须和 `app` 文件夹放在一起，不能只移动一个程序，也不要在压缩包里直接打开。本包需要 Windows 10/11 64 位。
 
-需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.23-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
+需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.25-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
 
 ## 2. 第一次创建账号
 

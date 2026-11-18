@@ -469,7 +469,15 @@ class Handler(BaseHTTPRequestHandler):
             if self.path=='/api/shutdown':
                 self.send(200,{'ok':True});BRIDGE.running=False;threading.Thread(target=self.server.shutdown,daemon=True).start();return
             if self.path not in routes:return self.send(404,{'error':'接口不存在'})
-            future=asyncio.run_coroutine_threadsafe(routes[self.path](body),BRIDGE.loop)
+            loop = BRIDGE.loop
+            if loop is None or not BRIDGE.running:
+                return self.send(503, {'error':'游戏服务未就绪，请先使用一键开始'})
+            operation = routes[self.path](body)
+            try:
+                future = asyncio.run_coroutine_threadsafe(operation, loop)
+            except RuntimeError:
+                operation.close()
+                return self.send(503, {'error':'游戏服务未就绪，请先使用一键开始'})
             result=future.result(timeout=180)
             self.send(200,result)
         except (ValueError,KeyError,RuntimeError,ConnectionError) as e:self.send(400,{'error':str(e)})
@@ -484,6 +492,9 @@ def main():
     thread=threading.Thread(target=lambda:asyncio.run(BRIDGE.run()),daemon=True);thread.start()
     print('AradReturn local helper http://127.0.0.1:'+str(PORT),flush=True)
     try:server.serve_forever(poll_interval=.5)
-    finally:BRIDGE.running=False;server.server_close()
+    finally:
+        BRIDGE.running = False
+        server.server_close()
+        thread.join(timeout=4)
 
 if __name__=='__main__':main()

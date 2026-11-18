@@ -6,7 +6,7 @@ A portable Windows ACT12 / level-60 local game package with a name-only account 
 
 **[Download the Windows package](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-Download `AradHomeward-v2.6.0-preview.23-win-x64.zip` from the release's **Assets**. GitHub's automatic **Source code** archives contain the custom source, not the playable game package.
+Download `AradHomeward-v2.6.0-preview.25-win-x64.zip` from the release's **Assets**. GitHub's automatic **Source code** archives contain the custom source, not the playable game package.
 
 ![Account selection example](docs/images/launcher-select-en-US.png)
 
@@ -33,9 +33,9 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 
 ## Current release status
 
-**v2.6.0-preview.23** is a translation preview. Non-Chinese text contains machine translation and reviewed corrections; some original text, bitmap text and voices remain. Player names and text typed by players are preserved. Language changes apply to the **next game launch**.
+**v2.6.0-preview.25** includes verified save snapshots at exit, a local welcome page in five languages, and English guides for all seven character classes. Display languages remain in preview. Some original bitmap text and voices remain. Player names and text typed by players are preserved. Language changes apply to the **next game launch**.
 
-The release has passed local component checks for the isolated runtime, new accounts, item data/icons, local certificate generation and language resource hashes. These checks do not establish game compatibility on every PC. See [troubleshooting](docs/USAGE.en.md#troubleshooting) if a new computer cannot start it.
+An isolated Windows playtest covered account login, channel changes, starter quest acceptance, trainer actions, and save recovery. Online trainer actions in Seria's room may be blocked with a request to return to town. See the [release changes](CHANGELOG.md) and [troubleshooting](docs/USAGE.en.md#troubleshooting).
 
 The pictures are native interface renders with **Explorer / Adventurer demo data**, not a bundled playable save.
 

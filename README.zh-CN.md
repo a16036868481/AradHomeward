@@ -6,7 +6,7 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 
 **[下载 Windows 压缩包](https://github.com/a16036868481/AradHomeward/releases)** · **[中文图文说明](docs/USAGE.zh-CN.md)** · **[English guide](docs/USAGE.en.md)**
 
-请在 Release 的 **Assets** 中下载 `AradHomeward-v2.6.0-preview.23-win-x64.zip`。GitHub 自动生成的 **Source code** 是自编代码，不是完整游戏包。
+请在 Release 的 **Assets** 中下载 `AradHomeward-v2.6.0-preview.25-win-x64.zip`。GitHub 自动生成的 **Source code** 是自编代码，不是完整游戏包。
 
 ![账号选择示例](docs/images/launcher-select-zh-Hans.png)
 
@@ -33,9 +33,9 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 
 ## 当前版本说明
 
-**v2.6.0-preview.23** 为翻译预览版。非中文语言包含机器翻译和人工修正，仍有部分原文、图片文字和原始语音。玩家输入的账号名、角色名和聊天内容保持原样。语言切换在**下次启动游戏**时应用。
+**v2.6.0-preview.25** 为预览版，包含经过完整性校验的退出备份、五语本地欢迎页和七个职业的英文建角说明。部分图片文字与语音仍沿用原始内容。玩家输入的账号名、角色名和聊天内容保持原样。语言切换在**下次启动游戏**时应用。
 
-已完成本机独立运行环境、空账号创建、物品资料与图标、本地证书和语言资源哈希检查。不同电脑的实际游戏兼容性仍需在对应电脑上验证；出现问题请看[故障排查](docs/USAGE.zh-CN.md#打不开时怎么处理)。
+已在独立 Windows 副本实测登录、切换频道、首个主线任务接取、修改器操作和存档恢复。赛丽亚房间内使用在线修改器可能提示回城。详见[更新记录](CHANGELOG.md)和[故障排查](docs/USAGE.zh-CN.md#打不开时怎么处理)。
 
 示例图片由原生界面组件生成，使用 **Explorer / Adventurer 虚构数据**，不代表压缩包带有这些账号或角色。
 

@@ -1,12 +1,13 @@
 # Copyright (c) 2026 eirros. All rights reserved.
 # Custom contributions; see the project LICENSE.txt and retained third-party notices.
 """Native desktop administration adapter. No HTML and no arbitrary URL forwarding."""
-import ctypes, hashlib, json, os, shutil, sqlite3, threading, time, uuid
+import json, os, shutil, threading, time, uuid
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs, urlencode
 from urllib.request import urlopen
 from assets import ROOT, GAME
 from bridge import local_server_ports
+from local_profiles import copy_verified_save
 
 GET_PATHS = frozenset('''/api/overview /api/characters /api/characters/online
 /api/character /api/character/editor /api/mail /api/items/page /api/items/detail
@@ -43,15 +44,12 @@ def safety_backup(label):
     dest=ROOT/'backups'/'management'/(time.strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:8])
     dest.mkdir(parents=True)
     target=dest/'dnf_a12.sqlite'
-    with sqlite3.connect(SERVER/'dnf_a12.sqlite',timeout=15) as source, sqlite3.connect(target) as output:
-        source.backup(output)
-        if output.execute('pragma quick_check').fetchone()[0]!='ok':
-            raise RuntimeError('管理操作前的存档备份校验失败，未执行修改')
+    database_hash = copy_verified_save(SERVER / 'dnf_a12.sqlite', target)
     for p in SERVER.iterdir():
         if p.is_file() and (p.suffix in ('.ini','.tsv') or p.name in ('channel_runtime.txt','open_schedules.etc','daily_items.etc')):
             shutil.copy2(p,dest/p.name)
     marker={'action':label,'time':time.strftime('%Y-%m-%d %H:%M:%S'),
-            'databaseSha256':hashlib.sha256(target.read_bytes()).hexdigest(),'quick_check':'ok'}
+            'databaseSha256':database_hash,'quick_check':'ok'}
     with (dest/'COMPLETE.json').open('x',encoding='utf-8') as f:
         json.dump(marker,f,ensure_ascii=False,indent=2);f.flush();os.fsync(f.fileno())
     return str(dest)

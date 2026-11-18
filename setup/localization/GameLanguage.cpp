@@ -8,6 +8,7 @@
 #include <string>
 #include "LanguageMap.h"
 #include "DisplayDecode.h"
+#include "OfflineNews.h"
 #include "vendor/minhook-1.3.4/include/MinHook.h"
 
 static HMODULE selfModule;
@@ -72,7 +73,16 @@ static void Log(const char* state)
 }
 static DWORD WINAPI AuditWorker(void*)
 {
-    for(int i=0;i<120;++i){Sleep(1000);if(i%5==4)Log("enabled");}return 0;
+    const char* state = locale == L"zh-Hans" ? "offline-news" : "enabled";
+    for (int i = 0; i < 24; ++i) { Sleep(5000); Log(state); }
+    return 0;
+}
+static void StartAudit(const char* state)
+{
+    Log(state);
+    // Diagnostics run outside the startup gate.
+    HANDLE audit = CreateThread(nullptr, 0, AuditWorker, nullptr, 0, nullptr);
+    if (audit) CloseHandle(audit);
 }
 static int WINAPI WideDecode(UINT page,DWORD flags,LPCCH input,int bytes,LPWSTR output,int capacity)
 {
@@ -116,9 +126,9 @@ static const wchar_t* __cdecl UiText(int id)
 }
 static int __stdcall Navigate(void* browser,const wchar_t* url)
 {
-    if(url&&!localNews.empty()&&!_wcsicmp(url,L"http://dnf.qq.com/client/includeImg.htm"))
-    {url=localNews.c_str();++newsHits;}
-    return originalNavigate(browser,url);
+    const wchar_t* target = OfflineWelcomeTarget(url, localNews);
+    if (target != url) ++newsHits;
+    return originalNavigate(browser, target);
 }
 static const wchar_t* __cdecl Decode(void* input)
 {
@@ -174,38 +184,46 @@ static DWORD WINAPI Initialize(void*)
     PathRemoveFileSpecW(path);PathRemoveFileSpecW(path);installation=path;
     wchar_t id[32];std::wstring settings=installation+L"\\localization\\selected.ini";
     GetPrivateProfileStringW(L"Localization",L"Language",L"zh-Hans",id,32,settings.c_str());locale=id;
-    if(locale==L"zh-Hans"){Log("original-chinese");return 0;}
-    if(locale==L"zh-Hant")face=L"Noto Sans CJK TC";
-    else if(locale==L"ja-JP")face=L"Noto Sans CJK JP";
-    else if(locale==L"ko-KR")face=L"Noto Sans CJK KR";
     // The manifest controls installed packs. Additional BCP-47 tags can use the
     // same Unicode pipeline after their text/font coverage has been validated.
     for(wchar_t c:locale)if(!((c>=L'a'&&c<=L'z')||(c>=L'A'&&c<=L'Z')||(c>=L'0'&&c<=L'9')||c==L'-')){Log("invalid-language-id");return 0;}
+    BYTE* image = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
+    auto nt = reinterpret_cast<IMAGE_NT_HEADERS*>(image + reinterpret_cast<IMAGE_DOS_HEADER*>(image)->e_lfanew);
+    BYTE* newsTarget = image + 0x7E7110;
+    const BYTE newsSignature[] = {0x55,0x8B,0xEC,0x8B,0x45,0x0C,0x8B,0x4D,0x08,0x50,0x51};
+    if (nt->OptionalHeader.SizeOfImage != 0x2C1F000 || memcmp(newsTarget, newsSignature, sizeof(newsSignature)))
+    { Log("unsupported-client"); return 0; }
+    localNews = OfflineNewsUrl(installation, locale);
+    // Use the local welcome page with the original Chinese text and font path.
+    if (locale == L"zh-Hans")
+    {
+        if (MH_Initialize() != MH_OK ||
+            MH_CreateHook(newsTarget, reinterpret_cast<void*>(&Navigate), reinterpret_cast<void**>(&originalNavigate)) != MH_OK ||
+            MH_EnableHook(newsTarget) != MH_OK)
+        { Log("news-hook-installation-failed"); return 0; }
+        StartAudit("offline-news");
+        return 0;
+    }
+    if(locale==L"zh-Hant")face=L"Noto Sans CJK TC";
+    else if(locale==L"ja-JP")face=L"Noto Sans CJK JP";
+    else if(locale==L"ko-KR")face=L"Noto Sans CJK KR";
     GetPrivateProfileStringW(L"Localization",L"Font",face,configuredFace,LF_FACESIZE,settings.c_str());
     face=configuredFace;
     if(!translations.Load(installation+L"\\localization\\packs\\"+locale+L".arlp")){Log("invalid-pack");return 0;}
     const std::wstring names=installation+L"\\localization\\protected-names.arnm";
     if(PathFileExistsW(names.c_str())&&!translations.LoadProtectedNames(names)){Log("invalid-name-protection");return 0;}
-    BYTE* image=reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
-    auto nt=reinterpret_cast<IMAGE_NT_HEADERS*>(image+reinterpret_cast<IMAGE_DOS_HEADER*>(image)->e_lfanew);
     BYTE* target=image+0x82B360;
     BYTE* rawA=image+0x82B1B0;
     BYTE* rawB=image+0x82B2D0;
     BYTE* uiTarget=image+0x7E62B0;
-    BYTE* newsTarget=image+0x7E7110;
     const BYTE signature[]={0x55,0x8B,0xEC,0x8B,0x4D,0x08,0x64,0x8B,0x15,0x2C,0,0,0,0x53,0x56,0x8B,0x71,0x14,0x57};
     const BYTE uiSignature[]={0x55,0x8B,0xEC,0x6A,0xFF,0x68};
-    const BYTE newsSignature[]={0x55,0x8B,0xEC,0x8B,0x45,0x0C,0x8B,0x4D,0x08,0x50,0x51};
     const BYTE rawSignature[]={0x55,0x8B,0xEC,0x64,0x8B,0x0D,0x2C,0,0,0};
-    if(nt->OptionalHeader.SizeOfImage!=0x2C1F000||memcmp(target,signature,sizeof(signature))||
+    if(memcmp(target,signature,sizeof(signature))||
        memcmp(uiTarget,uiSignature,sizeof(uiSignature))||
        *reinterpret_cast<DWORD*>(uiTarget+6)!=reinterpret_cast<DWORD>(image+0x9D75CD)||
-       memcmp(newsTarget,newsSignature,sizeof(newsSignature))||
        memcmp(rawA,rawSignature,sizeof(rawSignature))||memcmp(rawB,rawSignature,sizeof(rawSignature)))
     {Log("unsupported-client");return 0;}
-    std::wstring newsFile=installation+L"\\localization\\news\\"+locale+L".html";
-    wchar_t newsUrl[2048];DWORD urlLength=2048;
-    if(PathFileExistsW(newsFile.c_str())&&SUCCEEDED(UrlCreateFromPathW(newsFile.c_str(),newsUrl,&urlLength,0)))localNews=newsUrl;
     std::wstring font=installation+L"\\localization\\fonts\\NotoSansCJK-Regular.ttc";
     if(!AddFontResourceExW(font.c_str(),FR_PRIVATE,nullptr)){Log("font-unavailable");return 0;}
     if(MH_Initialize()!=MH_OK||MH_CreateHook(target,reinterpret_cast<void*>(&Decode),reinterpret_cast<void**>(&originalDecode))!=MH_OK||
@@ -218,10 +236,7 @@ static DWORD WINAPI Initialize(void*)
        MH_QueueEnableHook(rawA)!=MH_OK||MH_QueueEnableHook(rawB)!=MH_OK||
        MH_QueueEnableHook(newsTarget)!=MH_OK||MH_ApplyQueued()!=MH_OK)
     {Log("hook-installation-failed");return 0;}
-    Log("enabled");
-    // Audit on a separate thread: the startup gate must release immediately
-    // after initialization, not wait for the diagnostic sampling period.
-    HANDLE audit=CreateThread(nullptr,0,AuditWorker,nullptr,0,nullptr);if(audit)CloseHandle(audit);
+    StartAudit("enabled");
     return 0;
 }
 

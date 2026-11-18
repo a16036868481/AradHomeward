@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 eirros. All rights reserved.
+// Copyright (c) 2026 eirros. All rights reserved.
 // Custom contributions; see the project LICENSE.txt and retained third-party notices.
 using System;
 using System.Diagnostics;
@@ -19,8 +19,8 @@ using Dnf60Lifecycle;
 [assembly: System.Reflection.AssemblyTitle("阿拉德·归途 · 会话服务")]
 [assembly: System.Reflection.AssemblyCompany("eirros")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: System.Reflection.AssemblyVersion("2.6.0.23")]
-[assembly: System.Reflection.AssemblyFileVersion("2.6.0.23")]
+[assembly: System.Reflection.AssemblyVersion("2.6.0.25")]
+[assembly: System.Reflection.AssemblyFileVersion("2.6.0.25")]
 
 internal static class Dnf60Control
 {
@@ -608,14 +608,8 @@ internal static class Dnf60Control
 
     private static void Backup()
     {
-        string db = Path.Combine(Server, "dnf_a12.sqlite");
-        if (!File.Exists(db)) return;
-        string dest = Path.Combine(Root, "backups", DateTime.Now.ToString("yyyyMMdd-HHmmss-fff"));
-        Directory.CreateDirectory(dest);
-        foreach (string suffix in new[] { "", "-wal", "-shm" })
-            if (File.Exists(db + suffix)) File.Copy(db + suffix, Path.Combine(dest, "dnf_a12.sqlite" + suffix), false);
-        File.WriteAllText(Path.Combine(dest, "COMPLETE.txt"), "Game and server processes exited before this snapshot.\r\n" + DateTime.Now.ToString("o"), new UTF8Encoding(false));
-        Log("BACKUP " + dest);
+        var result = ProfileRequest(new Dictionary<string,object> { {"operation", "backup-shutdown"} });
+        Log("BACKUP " + Convert.ToString(result["path"]));
     }
 
     private static Process Launch(string file, string arguments, string directory, bool hidden)

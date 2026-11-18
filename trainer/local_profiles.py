@@ -5,17 +5,19 @@
 The original server still verifies its normal PBKDF2 credentials. The launcher
 uses a pinned loopback TLS login before starting the unmodified game client.
 """
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import datetime
 from pathlib import Path
 import hashlib
 import hmac
 import json
+import os
 import secrets
 import socket
 import sqlite3
 import ssl
 import sys
+import tempfile
 import threading
 import unicodedata
 import uuid
@@ -54,6 +56,22 @@ def account_name(value):
     return name, unicodedata.normalize('NFKC', name).casefold()
 
 
+def copy_verified_save(database, target):
+    """Write one self-contained SQLite snapshot, including committed WAL transactions."""
+    with closing(sqlite3.connect(database.as_uri()+'?mode=ro', uri=True, timeout=20)) as source, \
+            closing(sqlite3.connect(target)) as output:
+        source.backup(output)
+        if output.execute('PRAGMA journal_mode=DELETE').fetchone() != ('delete',):
+            raise sqlite3.DatabaseError('Cannot create a standalone SQLite snapshot')
+        if output.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
+            raise sqlite3.DatabaseError('Save snapshot failed quick_check')
+        tables = output.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('accounts','characters')").fetchone()
+        if tables != (2,):
+            raise sqlite3.DatabaseError('Save snapshot lacks game data tables')
+    with target.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
 class ProfileStore:
     def __init__(self, root=ROOT):
         self.root = Path(root).resolve()
@@ -72,21 +90,20 @@ class ProfileStore:
         finally:
             db.close()
 
-    def backup(self, action):
-        folder = self.root/'backups'/'accounts'/(datetime.now().strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:8])
-        folder.mkdir(parents=True)
-        target = folder/'dnf_a12.sqlite'
-        with self.connect() as source:
-            output = sqlite3.connect(target)
-            try:
-                source.backup(output)
-                if output.execute('pragma quick_check').fetchone()[0] != 'ok':
-                    raise RuntimeError('账号操作前的存档备份校验失败')
-            finally:
-                output.close()
-        marker = {'action': action, 'quick_check': 'ok',
-                  'databaseSha256': hashlib.sha256(target.read_bytes()).hexdigest()}
-        (folder/'COMPLETE.json').write_text(json.dumps(marker, indent=2), encoding='utf-8')
+    def backup(self, action, *, parent=None):
+        parent = parent or self.root / 'backups' / 'accounts'
+        parent.mkdir(parents=True, exist_ok=True)
+        now = datetime.now().astimezone()
+        folder = parent / (now.strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:8])
+        with tempfile.TemporaryDirectory(prefix='.save-', dir=parent) as work:
+            staging = Path(work) / 'backup'
+            staging.mkdir()
+            digest = copy_verified_save(self.database, staging / 'dnf_a12.sqlite')
+            marker = {'action': action, 'time': now.isoformat(), 'quick_check': 'ok', 'databaseSha256': digest}
+            (staging / 'COMPLETE.json').write_text(json.dumps(marker, indent=2), encoding='utf-8')
+            if action == 'game-exit':
+                (staging / 'COMPLETE.txt').write_text('Verified SQLite game save.\n' + now.isoformat(), encoding='utf-8')
+            os.replace(staging, folder)
         return folder
 
     def initialize(self):
@@ -231,7 +248,6 @@ class ProfileStore:
         Generated locally before each launch. No names are added to a shipped
         translation pack, and neither credentials nor save values are changed.
         """
-        import os
         import struct
         with self.connect() as db:
             tables = {r[0] for r in db.execute("select name from sqlite_master where type='table'")}
@@ -297,6 +313,12 @@ def main():
             result = store.create(request.get('name'))
         elif operation == 'login':
             result = store.prepare_login(request.get('id'))
+        elif operation == 'backup-shutdown':
+            try:
+                folder = store.backup('game-exit', parent=store.root / 'backups')
+            except (OSError, sqlite3.Error) as error:
+                raise RuntimeError('退出存档备份未完成，请检查存档目录及磁盘空间。') from error
+            result = {'path': str(folder)}
         else:
             raise ValueError('不支持此账号操作')
         print(json.dumps({'ok': True, 'data': result}, ensure_ascii=False))
