@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Download `AradHomeward-v2.6.0-preview.27-win-x64.zip` from **Assets**. For download verification, also get `SHA256SUMS.txt`. Extract the whole ZIP to a writable local folder such as `D:\Games\AradHomeward`. [Windows release](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.27)
+Download `AradHomeward-v2.6.0-preview.28-win-x64.zip` from **Assets**. For download verification, also get `SHA256SUMS.txt`. Extract the whole ZIP to a writable local folder such as `D:\Games\AradHomeward`. [Windows release](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.28)
 
 Keep the `app` folder next to all four EXE entries. Do not run from inside the ZIP, move just one EXE, or install into a protected system folder. The download is for Windows 10/11 x64; it is not an Android, macOS or Linux build.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.27-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.28-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Create a local account
 
@@ -70,7 +70,7 @@ To move your progress, exit normally on both PCs and copy the **entire extracted
 | Symptom | Action |
 | --- | --- |
 | Missing files, no window, or instant exit | Extract the entire ZIP again to a short writable path and check the archive hash. Keep all folders together. |
-| The account window does not appear | The launcher opens the compatibility account window after an early process error. To select that window directly, exit and set `"mode":"compat"` in `app/setup/launcher-mode.json`, then run `AradHomeward.exe`. |
+| The account window does not appear | Start `AradHomeward.exe` from the top-level folder. This package uses the compatibility account window by default. If it still fails, run `CheckStartup.exe` and collect `app/启动检查结果.json` and `app/logs/startup-state.json` if present. |
 | Game service fails to start | Run **CheckStartup.exe** and inspect its report plus `app/logs/` and `app/DNF60_ACT12/ACT12_Server/server_log.txt`. The relay preflight can select a free local port when 5555 is unavailable. |
 | Login identity is incomplete or mismatched | Restore the complete installation from its backup. Do not copy certificates from another unrelated installation or disable certificate validation. |
 | Some text is still in the original language | Exit, choose the language again and relaunch. Report the language, screen and an image; some original resources remain in this preview. |

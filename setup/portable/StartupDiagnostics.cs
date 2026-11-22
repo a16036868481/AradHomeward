@@ -19,7 +19,7 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("阿拉德·归途 · 启动检查")]
 [assembly: AssemblyCompany("eirros")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: AssemblyVersion("2.5.2.0")]
+[assembly: AssemblyVersion("2.5.3.0")]
 
 internal static class StartupDiagnostics
 {
@@ -91,12 +91,22 @@ internal static class StartupDiagnostics
             using(var os=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
             using(var framework=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"))
                 system=new {windows=Convert.ToString(os==null?null:os.GetValue("ProductName")),build=Convert.ToString(os==null?null:os.GetValue("CurrentBuildNumber")),displayVersion=Convert.ToString(os==null?null:os.GetValue("DisplayVersion")),is64BitWindows=Environment.Is64BitOperatingSystem,process64Bit=Environment.Is64BitProcess,ansiCodePage=GetACP(),frameworkRelease=Convert.ToString(framework==null?null:framework.GetValue("Release")),pathLength=Root.Length,rootContainsNonAscii=Root.Any(c=>c>127),root=Root};
-            var result=new {time=DateTime.Now.ToString("o"),diagnosticsVersion="2.5.2",result=Failed?"failed":"component-checks-passed",system=system,checks=Checks,portsAlreadyListening=ports,recentState=state,recentApplicationErrors=ApplicationErrors(),gameStarted=false,servicesStarted=false,note="Only component checks. Game startup on this computer has not been verified."};
+            var result=new {time=DateTime.Now.ToString("o"),diagnosticsVersion="2.5.3",result=Failed?"failed":"component-checks-passed",system=system,checks=Checks,portsAlreadyListening=ports,recentState=state,recentApplicationErrors=ApplicationErrors(),gameStarted=false,servicesStarted=false,note="Only component checks. Game startup on this computer has not been verified."};
             // The report intentionally excludes passwords, account secrets, tokens and save contents.
             string output=Json.Serialize(result);
             try {report=Path.Combine(Root,"启动检查结果.json");File.WriteAllText(report,output,new UTF8Encoding(true));}
             catch {report=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"归途启动检查结果-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+".json");File.WriteAllText(report,output,new UTF8Encoding(true));}
-            if(!args.Contains("--quiet"))MessageBox.Show((Failed?"检测到启动组件异常。":"组件检查完成，仍需结合点击后的现象确认启动问题。")+"\r\n\r\n请把这个结果文件发给我：\r\n"+report,"阿拉德·归途 · 启动检查",MessageBoxButtons.OK,Failed?MessageBoxIcon.Warning:MessageBoxIcon.Information);
+            if(!args.Contains("--quiet"))
+            {
+                string publicEntry=Path.Combine(Root,"..","AradHomeward.exe");
+                string startHint=File.Exists(publicEntry)
+                    ? "双击解压目录最外层的 AradHomeward.exe 开始游戏。\r\nTo play, open AradHomeward.exe in the main folder."
+                    : "双击同目录的 阿拉德·归途.exe 开始游戏。";
+                string message=Failed
+                    ? "检测到启动组件异常。请提供检查报告以便排查。\r\nA startup component failed. See the report below.\r\n\r\n"+report
+                    : "启动组件检查通过。\r\nStartup component checks passed.\r\n\r\n"+startHint;
+                MessageBox.Show(message,"阿拉德·归途 · 启动检查",MessageBoxButtons.OK,Failed?MessageBoxIcon.Warning:MessageBoxIcon.Information);
+            }
             return Failed?1:0;
         }
         catch(Exception error)

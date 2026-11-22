@@ -4,11 +4,11 @@
 
 A portable Windows ACT12 / level-60 local game package with a name-only account launcher, a native desktop trainer, and five display languages. Custom launcher, trainer and localization work by **eirros**.
 
-**[Download the Windows package](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.27)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
+**[Download the Windows package](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.28)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-Download `AradHomeward-v2.6.0-preview.27-win-x64.zip` from the release's **Assets**. This ZIP includes the game, server, native editor and LAN room support.
+Download `AradHomeward-v2.6.0-preview.28-win-x64.zip` from the release's **Assets**. This ZIP includes the startup repair, game, server, native editor and LAN room support.
 
-If preview.27 closes before the account screen or says the account window is already open, merge the startup repair's `app` folder into the folder with `AradHomeward.exe`. [Startup repair for preview.27](https://github.com/a16036868481/AradHomeward/releases/download/v2.6.0-preview.27/AradHomeward-v2.6.0-preview.27-StartupRepair.zip)
+Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 
 ![Account selection example](docs/images/launcher-select-en-US.png)
 
@@ -36,7 +36,7 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 
 ## Current release status
 
-**v2.6.0-preview.27** adds LAN rooms and opens a compatibility account window if the original launcher exits with an error before the account screen appears. The package includes the Seria room editing, item icon and localization fixes from the previous release. Some original game text and voices remain. Language changes apply to the **next game launch**.
+**v2.6.0-preview.28** opens the compatibility account window by default and manages it separately for each installation. Startup checks show the game entry after a successful check. The package includes LAN rooms, Seria room editing, item icon and localization fixes. Some original game text and voices remain. Language changes apply to the **next game launch**.
 
 Isolated Windows tests covered opening a room, copying the invitation, joining the character selector, reconnecting to the same guest account and closing the room. Party play on two physical PCs remains to be verified. [Release changes](CHANGELOG.md) · [Troubleshooting](docs/USAGE.en.md#troubleshooting)
 

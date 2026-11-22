@@ -8,8 +8,8 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyTitle("Arad Homeward")]
 [assembly: System.Reflection.AssemblyCompany("eirros")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: System.Reflection.AssemblyVersion("2.6.0.27")]
-[assembly: System.Reflection.AssemblyFileVersion("2.6.0.27")]
+[assembly: System.Reflection.AssemblyVersion("2.6.0.28")]
+[assembly: System.Reflection.AssemblyFileVersion("2.6.0.28")]
 internal static class PublicEntry
 {
     [STAThread]

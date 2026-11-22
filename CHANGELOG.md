@@ -1,5 +1,10 @@
 # Changes
 
+## v2.6.0-preview.28 — 2026-11-22
+
+- The full Windows ZIP includes the startup repair and opens the compatibility account window by default. Each installation manages its own account window.
+- A successful startup check displays the game entry. The detailed report is saved locally for troubleshooting.
+
 ## Startup repair for v2.6.0-preview.27 — 2026-11-22
 
 - Each installation manages its account window separately. The compatibility window can open while an older launcher still holds the global account-window lock.

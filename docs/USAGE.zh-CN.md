@@ -4,11 +4,11 @@
 
 ## 1. 下载并完整解压
 
-在 **Assets** 中下载 `AradHomeward-v2.6.0-preview.27-win-x64.zip`。`SHA256SUMS.txt` 是压缩包的校验文件。[Windows 下载页](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.27)
+在 **Assets** 中下载 `AradHomeward-v2.6.0-preview.28-win-x64.zip`。`SHA256SUMS.txt` 是压缩包的校验文件。[Windows 下载页](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.28)
 
 完整解压到有写入权限的本地目录，例如 `D:\Games\AradHomeward`。四个 EXE 入口必须和 `app` 文件夹放在一起，不能只移动一个程序，也不要在压缩包里直接打开。本包需要 Windows 10/11 64 位。
 
-需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.27-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
+需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.28-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
 
 ## 2. 第一次创建账号
 
@@ -70,7 +70,7 @@
 | 现象 | 处理方法 |
 | --- | --- |
 | 缺文件、没有窗口或闪退 | 检查压缩包校验值，重新完整解压到较短且可写的目录，保持所有文件夹在一起。 |
-| 账号窗口未出现 | 原版启动器提前异常退出时会自动打开兼容账号窗口。也可退出后在 `app/setup/launcher-mode.json` 设置 `"mode":"compat"`，再打开 `AradHomeward.exe`。 |
+| 账号窗口未出现 | 从解压目录最外层打开 `AradHomeward.exe`，新版会默认使用兼容账号窗口。若仍未打开，运行 `CheckStartup.exe`，收集 `app/启动检查结果.json` 和已生成的 `app/logs/startup-state.json`。 |
 | 游戏服务启动失败 | 运行 **CheckStartup.exe**，查看检查结果、`app/logs/` 及 `app/DNF60_ACT12/ACT12_Server/server_log.txt`。中继检查会在 5555 不可用时选择空闲本地端口。 |
 | 提示登录证书不完整或不匹配 | 从备份恢复整个安装目录。不要混用其他安装目录的证书，也不要关闭证书验证。 |
 | 仍显示部分原始文字 | 退出游戏、重新选择语言并启动。反馈时附上语言、具体页面和截图；预览版仍有少量原始资源。 |
