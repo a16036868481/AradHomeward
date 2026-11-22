@@ -12,8 +12,23 @@ using Dnf60Lifecycle;
 
 internal static partial class Dnf60Control
 {
+    private sealed class LanGuestSession
+    {
+        internal readonly Process Worker, Game;
+        internal readonly string Invite, Name;
+
+        internal LanGuestSession(Process worker, Process game, string invite, string name)
+        {
+            Worker = worker;
+            Game = game;
+            Invite = invite;
+            Name = name;
+        }
+    }
+
     private const string GuestAddress = "127.0.0.1";
     private static string GuestMarker { get { return Path.Combine(LogDir, "lan-guest-pid.txt"); } }
+    private static LanGuestSession activeLanGuest;
 
     internal static bool LanGuestRunning()
     {
@@ -90,12 +105,41 @@ internal static partial class Dnf60Control
         catch (Exception error) { Log("LAN room close: " + error.Message); }
     }
 
-    internal static async Task StartLanGuest(string invite, string name, Action<string> status)
+    private static void WaitForLanGuest()
+    {
+        // The account window has closed. Keep the controller hidden until the
+        // game exits normally or the LAN worker reports that it lost the room.
+        while (activeLanGuest != null)
+        {
+            var session = activeLanGuest;
+            activeLanGuest = null;
+            using (session.Game)
+            {
+                string notice = null;
+                using (session.Worker)
+                    try { notice = session.Worker.StandardOutput.ReadLine(); }
+                    catch (IOException) { }
+                if (String.IsNullOrEmpty(notice) && session.Game.HasExited) continue;
+
+                Result("lan-disconnect", false, LanRoomWindow.TextFor("lan_disconnected"));
+                using (var reconnect = new LanRoomWindow(session.Name, session.Invite, session.Game))
+                    reconnect.ShowDialog();
+            }
+        }
+    }
+
+    internal static async Task StartLanGuest(string invite, string name, Action<string> status, Process previousGame = null)
     {
         await Task.Run(() =>
         {
             using (ControlLocks.Shared.Operation())
             {
+                if (previousGame != null && !previousGame.HasExited)
+                {
+                    if (!ClientExitMonitor.IsInstalledClient(previousGame.MainModule.FileName, Client))
+                        throw new InvalidOperationException("lan_local_port_busy");
+                    CloseGuestClient(previousGame);
+                }
                 if (HasGameClient() || Owned(Server).Length != 0)
                     throw new InvalidOperationException("lan_local_port_busy");
                 status("lan_connecting");
@@ -108,46 +152,56 @@ internal static partial class Dnf60Control
                     WindowStyle = ProcessWindowStyle.Hidden, RedirectStandardInput = true,
                     RedirectStandardOutput = true, StandardOutputEncoding = Encoding.UTF8
                 };
-                using (var worker = Process.Start(info))
+                var worker = Process.Start(info);
+                if (worker == null) throw new InvalidOperationException("lan_unreachable");
+                Process game = null;
+                bool started = false;
+                try
                 {
-                    if (worker == null) throw new InvalidOperationException("lan_unreachable");
-                    bool started = false;
-                    try
+                    WriteLanRequest(worker, new Dictionary<string,object> { { "invite", invite }, { "name", name } });
+                    var credentials = ReadLanReply(worker, 20000);
+                    ConfigureClientBridge(GuestAddress);
+                    status("lan_starting");
+                    game = LaunchProfileGame(Convert.ToString(credentials["account"]),
+                                             Convert.ToString(credentials["secret"]), GuestAddress);
+                    credentials.Clear();
+                    WriteLanRequest(worker, new Dictionary<string,object> { { "pid", game.Id } });
+                    ReadLanReply(worker, 6000);
+                    worker.StandardInput.Close();
+                    activeLanGuest = new LanGuestSession(worker, game, invite, name);
+                    started = true;
+                    Result("lan-join", true, "已加入局域网房间。");
+                }
+                finally
+                {
+                    if (!started)
                     {
-                        WriteLanRequest(worker, new Dictionary<string,object> { { "invite", invite }, { "name", name } });
-                        var credentials = ReadLanReply(worker, 20000);
-                        ConfigureClientBridge(GuestAddress);
-                        status("lan_starting");
-                        using (var game = LaunchProfileGame(Convert.ToString(credentials["account"]),
-                                                            Convert.ToString(credentials["secret"]), GuestAddress))
-                        {
-                            credentials.Clear();
+                        using (worker)
+                        using (game)
                             try
                             {
-                                WriteLanRequest(worker, new Dictionary<string,object> { { "pid", game.Id } });
-                                ReadLanReply(worker, 6000);
+                                if (game != null) CloseGuestClient(game);
                             }
-                            catch
+                            finally
                             {
-                                if (!game.HasExited)
-                                {
-                                    game.CloseMainWindow();
-                                    if (!game.WaitForExit(2500)) game.Kill();
-                                }
-                                throw;
+                                worker.StandardInput.Close();
+                                if (!worker.WaitForExit(2500)) worker.Kill();
                             }
-                        }
-                        started = true;
-                        Result("lan-join", true, "已加入局域网房间。");
-                    }
-                    finally
-                    {
-                        worker.StandardInput.Close();
-                        if (!started && !worker.WaitForExit(2500)) worker.Kill();
                     }
                 }
             }
         });
+    }
+
+    private static void CloseGuestClient(Process game)
+    {
+        if (game.HasExited) return;
+        if (game.CloseMainWindow() && game.WaitForExit(2500)) return;
+        // The old guest has lost its tunnels and cannot save anything to the
+        // host. Some legacy dialogs refuse to handle the normal close message.
+        try { if (!game.HasExited) game.Kill(); }
+        catch (InvalidOperationException) { if (!game.HasExited) throw; }
+        if (!game.WaitForExit(5000)) throw new InvalidOperationException("lan_close_old_game");
     }
 
     private static void WriteLanRequest(Process worker, Dictionary<string,object> data)

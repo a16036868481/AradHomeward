@@ -1,5 +1,12 @@
 # Changes
 
+## v2.6.0-preview.32 — 2026-11-23
+
+- Kept learned skills, both plans and skill shortcuts when saving the current class. Editing either plan's remaining SP refreshes the game immediately, including when a plan has no learned skills.
+- Restored skill-contract costs along with learned skills when a class change fails, and localized the skill plan buttons.
+- Added LAN connection checks that tolerate brief delays and release stale guest slots. A new UDP source port can replace an idle entry when all slots are in use.
+- Rejoining after a disconnect uses the previous invitation and player name and loads the guest's saved character progress.
+
 ## v2.6.0-preview.31 — 2026-11-22
 
 - Restored seven legacy pet evolutions. Turning in an eligible quest evolves the equipped pet, preserves its identity and progression, and consumes the required materials in the same transaction.

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 eirros. All rights reserved.
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Net.NetworkInformation;
@@ -120,12 +121,22 @@ internal sealed class LanRoomWindow : Form
         FormClosed += (s, e) => refresh.Dispose();
     }
 
-    internal LanRoomWindow(string suggestedName) : this(false)
+    internal LanRoomWindow(string suggestedName, string previousInvite = "", Process previousGame = null) : this(false)
     {
         player.Text = suggestedName;
+        invite.Text = previousInvite;
+        if (previousGame != null)
+        {
+            Text = heading.Text = TextFor("lan_reconnect");
+            guide.Text = TextFor("lan_disconnected");
+            StyleButton(primary, "lan_reconnect", true);
+            StartPosition = FormStartPosition.CenterScreen;
+            ShowInTaskbar = true;
+            TopMost = true;
+        }
         primary.Click += async (s, e) => await Work(async () =>
         {
-            await Dnf60Control.StartLanGuest(invite.Text.Trim(), player.Text, SetStatus);
+            await Dnf60Control.StartLanGuest(invite.Text.Trim(), player.Text, SetStatus, previousGame);
             DialogResult = DialogResult.OK;
         });
     }

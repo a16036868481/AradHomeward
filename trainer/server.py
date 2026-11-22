@@ -40,6 +40,7 @@ except (ValueError,OSError):pass
 STARTED=time.time()
 ONLINE_CACHE=(0,[])
 LOG=logging.getLogger('dnf60')
+SKILL_POINT_FIELDS = frozenset(('skill_points', 'skill_points2'))
 ATTRIBUTE_FIELDS={
     'skill_points':('技能栏 A 的 SP',0,65535),
     'skill_points2':('技能栏 B 的 SP',0,65535),
@@ -86,10 +87,13 @@ def json_default(v):
     if isinstance(v,bytes): return {'base64':base64.b64encode(v).decode('ascii')}
     raise TypeError(type(v).__name__)
 
-def snapshot(character_id,action):
+def snapshot(character_id,action, *, include_skill_costs=False):
     target=role(character_id)
+    tables = ['characters', 'character_items', 'character_skills']
+    if include_skill_costs:
+        tables.append('character_premium_skill_costs')
     with connect_db() as db:
-        data={t:[dict(r) for r in db.execute('select * from '+t+' where character_id=?',(character_id,))] for t in ('characters','character_items','character_skills')}
+        data={t:[dict(r) for r in db.execute('select * from '+t+' where character_id=?',(character_id,))] for t in tables}
     data['account']={'account_id':target['account_id'],'cera':target['cera']}
     data['action']=action;data['time']=time.strftime('%Y-%m-%d %H:%M:%S')
     folder=ROOT/'backups'/'trainer';folder.mkdir(parents=True,exist_ok=True)
@@ -148,6 +152,14 @@ async def notify_profile(s,r,fatigue=False):
     if fatigue:
         await s.notify(36,struct.pack('<HHHH',*(max(0,min(65535,r[k])) for k in ('used_fatigue','max_fatigue','cumulative_fatigue','fatigue_buff'))))
 
+async def notify_skill_points(session, character):
+    # The native progress notification carries both SP balances without
+    # rebuilding the learned skills or replacing any hotbar slots.
+    progress = struct.pack('<BIIIHHIIB', character['level'], character['exp'], 0, 0,
+                           character['skill_points'], character['skill_points2'],
+                           character['win_points'], 0, 0)
+    await session.notify(37, progress)
+
 def attribute_values(body,current):
     extra={key:integer(body[key],*rule) for key,rule in ATTRIBUTE_FIELDS.items() if key in body}
     if 'fatigue_remaining' in body or 'max_fatigue' in extra:
@@ -160,6 +172,12 @@ def attribute_values(body,current):
 def update_attributes(db,id,extra):
     for key,value in extra.items():db.execute('update characters set '+key+'=? where character_id=?',(value,id))
 
+def career_changes(career, character):
+    if career is None:
+        return {}
+    selected = {'job': career['job'], 'grow_type': career['grow'], 'awakening_type': career['awakening']}
+    return selected if any(character[key] != value for key, value in selected.items()) else {}
+
 async def profile(body):
     id=integer(body.get('id'),'角色编号',1,2147483647);r=role(id);s=require_session(id)
     values={}
@@ -169,12 +187,15 @@ async def profile(body):
     career=None
     if 'career' in body:
         index=integer(body['career'],'职业',0,len(CAREERS)-1);career=CAREERS[index]
-        values.update(job=career['job'],grow_type=career['grow'],awakening_type=career['awakening'])
     extra=attribute_values(body,r)
-    if not values and not extra:raise ValueError('请选择要修改的内容')
-    ensure_gm(r['account_id'])
+    if not values and not extra and career is None:raise ValueError('请选择要修改的内容')
     if not s:
-        backup=snapshot(id,'profile')
+        job_change=career_changes(career,r)
+        values.update(job_change)
+        if not values and not extra:
+            return {'message':'没有未保存的角色修改。','role':r}
+        ensure_gm(r['account_id'])
+        backup=snapshot(id,'profile',include_skill_costs=bool(job_change))
         if values:await asyncio.to_thread(gm_api,'/api/character/edit',{'id':id,'values':values})
         if extra:
             if id in {x['character_id'] for x in (await asyncio.to_thread(gm_api,'/api/characters/online')).get('items',[])}:
@@ -184,9 +205,16 @@ async def profile(body):
         event=record('角色修改',id,'离线数据已保存，下次进入角色生效',backup['path'],values|extra)
         return {'message':event['message'],'event':event,'role':role(id)}
     async with s.operation_lock,s.lock:
+        ensure_gm(r['account_id'])
         await s.barrier()
-        backup=snapshot(id,'profile');before=role(id)
+        before=role(id)
+        job_change=career_changes(career,before)
         extra=attribute_values(body,before)
+        if not values and not extra and not job_change:
+            return {'message':'没有未保存的角色修改。','role':before}
+        backup=snapshot(id,'profile',include_skill_costs=bool(job_change))
+        edit_skill_points = not SKILL_POINT_FIELDS.isdisjoint(extra)
+        only_skill_points = not values and not job_change and extra.keys() <= SKILL_POINT_FIELDS
         changed=set()
         try:
             with connect_db() as db:
@@ -194,15 +222,15 @@ async def profile(body):
                 if 'gold' in values:
                     db.execute('update characters set gold=? where character_id=?',(values['gold'],id));changed.add('gold')
                 if 'cera' in values:db.execute('update accounts set cera=? where account_id=?',(values['cera'],r['account_id']))
-                if career:
+                if job_change:
                     old=baseline(before['job'],before['grow_type'],before['level'])
-                    new=baseline(career['job'],career['grow'],before['level'])
+                    new=baseline(job_change['job'],job_change['grow_type'],before['level'])
                     fields={k:before[k]+n-o for k,n,o in zip(GROWTH['columns'],new,old)}
-                    fields.update(job=career['job'],grow_type=career['grow'],awakening_type=career['awakening'])
+                    fields.update(job_change)
                     for k,v in fields.items():db.execute('update characters set '+k+'=? where character_id=?',(v,id));changed.add(k)
-            if career:
+            if job_change:
                 changed.update(('skill_points','skill_points2'))
-                await s.gm(bytes((3,1,career['grow'])))
+                await s.gm(bytes((3,1,job_change['grow_type'])))
             if 'level' in values:
                 changed.update(GROWTH['columns']+['level','exp','skill_points','skill_points2'])
                 await s.gm(bytes((7,values['level'])))
@@ -210,20 +238,37 @@ async def profile(body):
                 changed.update(extra)
                 with connect_db() as db:
                     db.execute('begin immediate');update_attributes(db,id,extra)
-            await s.refresh()
-            current=role(id);await notify_profile(s,current,'used_fatigue' in extra)
+            if not only_skill_points:
+                await s.refresh()
+            current=role(id)
+            if not only_skill_points:
+                await notify_profile(s,current,'used_fatigue' in extra)
+            if edit_skill_points:
+                await notify_skill_points(s,current)
         except Exception:
             with connect_db() as db:
                 db.execute('begin immediate')
                 for k in changed:db.execute('update characters set '+k+'=? where character_id=?',(before[k],id))
                 if 'cera' in values:db.execute('update accounts set cera=? where account_id=?',(before['cera'],r['account_id']))
-                if career:
+                if job_change:
+                    db.execute('delete from character_premium_skill_costs where character_id=?',(id,))
                     db.execute('delete from character_skills where character_id=?',(id,))
-                    for skill in backup['character_skills']:db.execute('insert into character_skills values(?,?,?,?,?)',tuple(skill[k] for k in ('character_id','tree_index','slot_index','skill_id','skill_level')))
-            try:await s.refresh();await notify_profile(s,before,'used_fatigue' in extra)
-            except Exception:pass
+                    db.executemany('''insert into character_skills(character_id,tree_index,slot_index,skill_id,skill_level)
+                                      values(:character_id,:tree_index,:slot_index,:skill_id,:skill_level)''',
+                                   backup['character_skills'])
+                    db.executemany('''insert into character_premium_skill_costs(character_id,tree_index,skill_id,skill_level,required_level,sp_cost)
+                                      values(:character_id,:tree_index,:skill_id,:skill_level,:required_level,:sp_cost)''',
+                                   backup['character_premium_skill_costs'])
+            try:
+                if not only_skill_points:
+                    await s.refresh()
+                    await notify_profile(s,before,'used_fatigue' in extra)
+                if edit_skill_points:
+                    await notify_skill_points(s,before)
+            except Exception:
+                pass
             raise
-        event=record('角色修改',id,'在线修改已同步到游戏',backup['path'],values|extra)
+        event=record('角色修改',id,'在线修改已同步到游戏',backup['path'],values|job_change|extra)
         return {'message':event['message'],'event':event,'role':current}
 
 def item_options(body):

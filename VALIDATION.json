@@ -1,29 +1,35 @@
 {
-  "version": "2.6.0-preview.27",
-  "checkedOn": "2026-11-22",
+  "version": "2.6.0-preview.32",
+  "checkedOn": "2026-11-23",
+  "automatedTestsPassed": 16,
   "startupDiagnosticChecksPassed": 7,
-  "pinnedRuntimeFiles": 820,
-  "automatedLanAndLifecycleTestsPassed": 10,
-  "languageArchiveSelectionsVerified": [
+  "languagePackHashesVerified": [
     "zh-Hans",
     "zh-Hant",
     "en-US",
     "ja-JP",
     "ko-KR"
   ],
-  "emptyShippedAccounts": true,
-  "cleanFixtureProfileCreationVerified": true,
-  "newIdentityCreationAndMismatchRejectionVerified": true,
-  "originalLauncherObserved": true,
-  "fallbackAfterSimulatedLauncherErrorObserved": true,
-  "isolatedLanPlaytest": {
-    "gameAndTrainerLaunched": true,
-    "roomPanelOpened": true,
-    "invitationCopyConfirmed": true,
-    "guestAdmissionAndAccountReuseVerified": true,
-    "localHostSelectionPreserved": true,
-    "gameExitClosedRoomAndServices": true,
-    "completedExitBackup": true,
-    "physicalTwoPcPartyPlayVerified": false
+  "publicPayload": {
+    "emptyShippedAccounts": true,
+    "cleanSaveIntegrity": true,
+    "firstRunIdentityVerifiedInTemporaryFixture": true
+  },
+  "nativeServerSkillRegression": {
+    "baseClasses": 7,
+    "tested": [
+      "learning and spending SP in both plans",
+      "saved shortcuts and relog",
+      "saving the current class",
+      "live SP edit with an empty skill plan",
+      "rollback of skill-contract costs",
+      "switching to a different class"
+    ]
+  },
+  "localLanTransport": {
+    "testEnvironment": "one Windows computer",
+    "realServerAndSeparateGuestConnection": true,
+    "guestJoinedReconnectedAndLoadedSavedProgress": true,
+    "roomClosureObserved": true
   }
 }

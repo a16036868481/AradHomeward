@@ -213,6 +213,46 @@ static bool InstallSeriaIntroductionHook(BYTE* image)
     return true;
 }
 
+static void LocalizeSkillPlanButtons()
+{
+    const wchar_t* first;
+    const wchar_t* second;
+    if (locale == L"en-US") { first = L"Plan A"; second = L"Plan B"; }
+    else if (locale == L"ja-JP") { first = L"プラン A"; second = L"プラン B"; }
+    else if (locale == L"ko-KR") { first = L"설정 A"; second = L"설정 B"; }
+    else if (locale == L"zh-Hant") { first = L"方案 A"; second = L"方案 B"; }
+    else return;
+
+    const std::wstring path = installation + L"\\DNF60_ACT12\\ACT12\\version.dll";
+    auto module = reinterpret_cast<BYTE*>(GetModuleHandleW(path.c_str()));
+    if (!module) return;
+    auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
+    auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(module + dos->e_lfanew);
+    if (nt->OptionalHeader.SizeOfImage != 0x22000) return;
+
+    // The legacy extension selects these two literal pointers with a mov/mov/cmove.
+    // Leave the control setup and its text copy routine in place.
+    const BYTE firstOffset = 1, secondOffset = 6;
+    BYTE* instructions = module + 0x1945;
+    BYTE labels[] = {0xB8, 0, 0, 0, 0, 0xBA, 0, 0, 0, 0, 0x0F, 0x44, 0xD0};
+    auto originalFirst = reinterpret_cast<const wchar_t*>(module + 0x17178);
+    auto originalSecond = reinterpret_cast<const wchar_t*>(module + 0x17170);
+    memcpy(labels + firstOffset, &originalFirst, sizeof(originalFirst));
+    memcpy(labels + secondOffset, &originalSecond, sizeof(originalSecond));
+    if (memcmp(instructions, labels, sizeof(labels)) ||
+        memcmp(originalFirst, L"方案一", sizeof(L"方案一")) ||
+        memcmp(originalSecond, L"方案二", sizeof(L"方案二"))) return;
+
+    memcpy(labels + firstOffset, &first, sizeof(first));
+    memcpy(labels + secondOffset, &second, sizeof(second));
+    DWORD protection;
+    if (!VirtualProtect(instructions, sizeof(labels), PAGE_EXECUTE_READWRITE, &protection)) return;
+    memcpy(instructions, labels, sizeof(labels));
+    DWORD unused;
+    VirtualProtect(instructions, sizeof(labels), protection, &unused);
+    FlushInstructionCache(GetCurrentProcess(), instructions, sizeof(labels));
+}
+
 static DWORD WINAPI Initialize(void*)
 {
     wchar_t path[32768];GetModuleFileNameW(nullptr,path,32768);
@@ -274,6 +314,7 @@ static DWORD WINAPI Initialize(void*)
        MH_QueueEnableHook(rawA)!=MH_OK||MH_QueueEnableHook(rawB)!=MH_OK||
        MH_QueueEnableHook(newsTarget)!=MH_OK||MH_ApplyQueued()!=MH_OK)
     {Log("hook-installation-failed");return 0;}
+    LocalizeSkillPlanButtons();
     StartAudit("enabled");
     return 0;
 }

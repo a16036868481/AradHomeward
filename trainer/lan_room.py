@@ -31,6 +31,10 @@ from relay_config import endpoints
 PROTOCOL = 1
 HELLO_LIMIT = 4096
 HANDSHAKE_TIMEOUT = 8
+HEARTBEAT_INTERVAL = 5
+HEARTBEAT_TIMEOUT = 20
+HEARTBEAT_PING = b'P'
+HEARTBEAT_PONG = b'A'
 GAME_PORT = 7001
 LOOPBACK = '127.0.0.1'
 PRIVATE_NETWORKS = tuple(IPv4Network(network) for network in (
@@ -87,8 +91,10 @@ async def write_message(writer, data):
 
 async def close_writer(writer):
     writer.close()
-    with suppress(OSError, TimeoutError):
+    try:
         await asyncio.wait_for(writer.wait_closed(), timeout=1)
+    except OSError:
+        writer.transport.abort()
 
 
 async def copy_stream(reader, writer):
@@ -296,6 +302,7 @@ class RoomHost:
         self.claimed.add(identity)
         ticket = secrets.token_urlsafe(32)
         guest = RoomGuest(identity)
+        heartbeat = request.get('heartbeat') is True
         try:
             try:
                 login, secret = await asyncio.to_thread(guest_credentials, self.profiles, identity, name)
@@ -303,10 +310,23 @@ class RoomHost:
                 raise RoomError('lan_guest_account_error') from None
             self.guests[ticket] = guest
             await write_message(writer, {'ok': True, 'account': login, 'secret': secret, 'ticket': ticket,
-                                         'tcp': sorted(tcp), 'udp': sorted(udp)})
-            await reader.read(1)
+                                         'tcp': sorted(tcp), 'udp': sorted(udp), 'heartbeat': heartbeat})
+            if heartbeat:
+                await self.monitor_guest(reader, writer)
+            else:
+                await reader.read(1)
         finally:
             self.guest_left(identity, ticket, guest)
+
+    async def monitor_guest(self, reader, writer):
+        # A short stall can recover through TCP retransmission. Release the
+        # authenticated slot if no control traffic returns within the deadline.
+        while True:
+            async with asyncio.timeout(HEARTBEAT_TIMEOUT + 2 * HEARTBEAT_INTERVAL):
+                if await reader.readexactly(1) != HEARTBEAT_PING:
+                    return
+                writer.write(HEARTBEAT_PONG)
+                await writer.drain()
 
     def guest_left(self, identity, ticket, guest):
         self.guests.pop(ticket, None)

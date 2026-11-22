@@ -6,7 +6,7 @@ A portable Windows ACT12 / level-60 local game package with a name-only account 
 
 **[Windows releases](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-`AradHomeward-v2.6.0-preview.31-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
+`AradHomeward-v2.6.0-preview.32-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
 
 Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 
@@ -16,8 +16,8 @@ Extract into a new folder to try the release while preserving any existing insta
 
 1. Fully extract the release ZIP to a writable folder, for example `D:\Games\AradHomeward`. Do not run it inside the archive.
 2. Run **AradHomeward.exe**. Choose your language in the launcher.
-3. On first use, enter an account **name** and click **Create account**. No account number or password is required.
-4. Select the saved account, click **Play selected**, then create or choose a character.
+3. On first use, enter an account **name** and click **Save account**.
+4. Select the saved account, click **Play solo**, then create or choose a character.
 5. The game and **Arad Trainer** open together. Background services remain hidden. Choose **End Game** inside the game to close the related tools and services and save a backup.
 
 Windows 10/11 **64-bit** is required for this package. Python and the trainer's dependencies are included. No cloud account, database installation or separate Python installation is needed.
@@ -25,7 +25,7 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 ## Included features
 
 - Saved local accounts selected by name; a fresh download starts with no personal accounts or characters.
-- **Create room** and **Join room** in the launcher. The host window shows the room address, guest count and a button to copy the invitation. [LAN room guide](docs/LAN.md)
+- **Host LAN game** and **Join LAN game** in the launcher. The host window shows the room address, guest count and a button to copy the invitation. [LAN room guide](docs/LAN.md)
 - Native Windows trainer: gold, Cera, level, SP, class, inventory, quests, mail, gameplay and channels.
 - Item icons, name/ID search, multiple selection, quantities, reinforcement, amplification and hover details.
 - Launcher, supported game text/interface resources and trainer language selection: Simplified Chinese, Traditional Chinese, English, Japanese and Korean.
@@ -36,9 +36,9 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 
 ## Current release status
 
-**v2.6.0-preview.29** places the English-named programs directly in the extraction folder. The game uses the current Windows output volume and mute. A new Windows mixer session at full volume starts at 35% for the game. The compatibility account window remains the default. Language changes apply to the **next game launch**. Some original game text and voices remain.
+**v2.6.0-preview.32** preserves skills and shortcuts when saving the current class and updates both SP balances in the game as soon as they are saved. After a LAN disconnect, **Rejoin room** opens with the previous invitation and player name.
 
-Isolated Windows tests covered opening a room, copying the invitation, joining the character selector, reconnecting to the same guest account and closing the room. Party play on two physical PCs remains to be verified. [Release changes](CHANGELOG.md) · [Troubleshooting](docs/USAGE.en.md#troubleshooting)
+Language changes apply to the **next game launch**. Some original game text and voices remain. [Release changes](CHANGELOG.md) · [Troubleshooting](docs/USAGE.en.md#troubleshooting)
 
 The pictures are native interface renders with **Explorer / Adventurer demo data**, not a bundled playable save.
 

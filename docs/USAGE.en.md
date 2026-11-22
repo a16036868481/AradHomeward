@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Extract the whole `AradHomeward-v2.6.0-preview.31-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
+Extract the whole `AradHomeward-v2.6.0-preview.32-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
 
 Keep the extracted files and folders together. The package requires Windows 10 or 11 x64.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.31-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.32-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Create a local account
 

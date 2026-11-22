@@ -19,8 +19,8 @@ using Dnf60Lifecycle;
 [assembly: System.Reflection.AssemblyTitle("阿拉德·归途 · 会话服务")]
 [assembly: System.Reflection.AssemblyCompany("eirros")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: System.Reflection.AssemblyVersion("2.6.0.31")]
-[assembly: System.Reflection.AssemblyFileVersion("2.6.0.31")]
+[assembly: System.Reflection.AssemblyVersion("2.6.0.32")]
+[assembly: System.Reflection.AssemblyFileVersion("2.6.0.32")]
 
 internal static partial class Dnf60Control
 {
@@ -76,12 +76,12 @@ internal static partial class Dnf60Control
         }
         if(action=="compat-accounts")
         {
-            try{ShowStandaloneAccountPane();return 0;}
+            try{ShowStandaloneAccountPane();WaitForLanGuest();return 0;}
             catch(Exception ex){AccountStage("native-account-ui-failed",ex.Message,true);Result("compat-accounts",false,ex.Message);MessageBox.Show(ex.Message,"阿拉德·归途",MessageBoxButtons.OK,MessageBoxIcon.Warning);return 1;}
         }
         if(action=="launcher-ui")
         {
-            try { ShowOriginalAccountPane(args);return 0; }
+            try { ShowOriginalAccountPane(args);WaitForLanGuest();return 0; }
             catch(Exception ex){AccountStage("launcher-ui-failed",ex.Message,true);Result("launcher-ui",false,ex.Message);MessageBox.Show(ex.Message,"阿拉德·归途",MessageBoxButtons.OK,MessageBoxIcon.Warning);return 1;}
         }
         if(action=="background-host")

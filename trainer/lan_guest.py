@@ -15,7 +15,8 @@ import sys
 
 from bridge import forward_until_closed
 from lan_room import (
-    GAME_PORT, HANDSHAKE_TIMEOUT, HELLO_LIMIT, LOOPBACK, PROTOCOL, DatagramQueue,
+    GAME_PORT, HANDSHAKE_TIMEOUT, HEARTBEAT_INTERVAL, HEARTBEAT_PING, HEARTBEAT_PONG,
+    HEARTBEAT_TIMEOUT, HELLO_LIMIT, LOOPBACK, PROTOCOL, DatagramQueue,
     RoomError, client_build, close_writer, copy_stream, parse_invitation,
     read_message, receive_datagrams, send_datagrams, write_message,
 )
@@ -45,14 +46,27 @@ class GuestDatagrams(asyncio.DatagramProtocol):
         self.transport = transport
 
     def datagram_received(self, data, address):
-        flow = self.flows.get(address)
-        if flow is None:
+        if self.guest.closing:
+            return
+        entry = self.flows.pop(address, None)
+        if entry is None:
             if len(self.flows) >= 6:
-                return
-            flow = self.flows[address] = DatagramQueue()
+                # The game can reopen its UDP socket between channels. Reuse
+                # the least recently used tunnel when the source port changes.
+                _, oldest = self.flows.pop(next(iter(self.flows)))
+                oldest.cancel()
+            flow = DatagramQueue()
             task = self.guest.spawn(self.relay(address, flow))
-            task.add_done_callback(lambda _: self.flows.pop(address, None))
+            task.add_done_callback(lambda completed: self.forget(address, completed))
+            entry = flow, task
+        self.flows[address] = entry
+        flow, _ = entry
         flow.datagram_received(data, address)
+
+    def forget(self, address, task):
+        entry = self.flows.get(address)
+        if entry is not None and entry[1] is task:
+            del self.flows[address]
 
     async def relay(self, address, flow):
         upstream, writer, _ = await self.guest.exchange('udp', port=self.port)
@@ -74,7 +88,9 @@ class GuestConnection:
         self.context.verify_mode = ssl.CERT_NONE
         self.control_reader = self.control_writer = None
         self.ticket = ''
+        self.heartbeat = self.closing = False
         self.tcp_listeners, self.udp_listeners, self.tasks = [], [], set()
+        self.tcp_writers = set()
 
     async def exchange(self, operation, **fields):
         writer = None
@@ -104,8 +120,9 @@ class GuestConnection:
             raise RoomError('lan_invalid_name') from None
         player = player_identity(self.root, identity_name)
         self.control_reader, self.control_writer, reply = await self.exchange(
-            'join', key=self.invite_key, build=client_build(self.root), player=player, name=name)
+            'join', key=self.invite_key, build=client_build(self.root), player=player, name=name, heartbeat=True)
         self.ticket = reply['ticket']
+        self.heartbeat = reply.get('heartbeat') is True
         tcp, udp = reply['tcp'], reply['udp']
         if (GAME_PORT not in tcp or len(tcp) + len(udp) > 96
                 or any(type(port) is not int or not 1 <= port <= 65535 for port in (*tcp, *udp))):
@@ -114,7 +131,7 @@ class GuestConnection:
         try:
             for port in tcp:
                 listener = await asyncio.start_server(
-                    lambda reader, writer, port=port: self.spawn(self.relay(reader, writer, port)),
+                    lambda reader, writer, port=port: self.accept_tcp(reader, writer, port),
                     LOOPBACK, port)
                 self.tcp_listeners.append(listener)
             for port in udp:
@@ -124,6 +141,35 @@ class GuestConnection:
         except OSError:
             raise RoomError('lan_local_port_busy') from None
         return {'account': reply['account'], 'secret': reply['secret']}
+
+    async def wait_for_room_loss(self):
+        reader, writer = self.control_reader, self.control_writer
+        try:
+            if not self.heartbeat:
+                await reader.read(1)
+                return
+            while True:
+                try:
+                    # EOF wakes the guest immediately on a graceful room close.
+                    await asyncio.wait_for(reader.read(1), HEARTBEAT_INTERVAL)
+                    return
+                except TimeoutError:
+                    pass
+                async with asyncio.timeout(HEARTBEAT_TIMEOUT):
+                    writer.write(HEARTBEAT_PING)
+                    await writer.drain()
+                    if await reader.readexactly(1) != HEARTBEAT_PONG:
+                        return
+        except (OSError, EOFError):
+            return
+
+    def accept_tcp(self, reader, writer, port):
+        if self.closing:
+            writer.close()
+            return
+        self.tcp_writers.add(writer)
+        task = self.spawn(self.relay(reader, writer, port))
+        task.add_done_callback(lambda _: self.tcp_writers.discard(writer))
 
     def spawn(self, coroutine):
         task = asyncio.create_task(coroutine)
@@ -147,13 +193,21 @@ class GuestConnection:
             await close_writer(writer)
 
     async def close(self):
+        if self.closing:
+            return
+        self.closing = True
         for listener in self.tcp_listeners:
             listener.close()
         for transport in self.udp_listeners:
             transport.close()
-        for task in tuple(self.tasks):
+        if self.control_writer is not None:
+            self.control_writer.close()
+        for writer in self.tcp_writers:
+            writer.close()
+        tasks = tuple(self.tasks)
+        for task in tasks:
             task.cancel()
-        await asyncio.gather(*self.tasks, return_exceptions=True)
+        await asyncio.gather(*tasks, return_exceptions=True)
         if self.control_writer is not None:
             await close_writer(self.control_writer)
         for listener in self.tcp_listeners:
@@ -204,6 +258,22 @@ async def watch_game(pid):
         kernel.CloseHandle(handle)
 
 
+async def watch_session(guest, pid):
+    game = asyncio.create_task(watch_game(pid))
+    room = asyncio.create_task(guest.wait_for_room_loss())
+    try:
+        await asyncio.wait((game, room), return_when=asyncio.FIRST_COMPLETED)
+        if not game.done():
+            await guest.close()
+            if not game.done():
+                with suppress(OSError):
+                    output_message({'event': 'disconnected'})
+        await game
+    finally:
+        room.cancel()
+        await asyncio.gather(room, return_exceptions=True)
+
+
 async def main():
     request = input_message()
     guest = GuestConnection(ROOT, request.get('invite'))
@@ -215,16 +285,7 @@ async def main():
         pid = process.get('pid')
         if type(pid) is not int or not 0 < pid < 2**32:
             raise RoomError('lan_game_start_failed')
-        game = asyncio.create_task(watch_game(pid))
-        room = asyncio.create_task(guest.control_reader.read(1))
-        try:
-            done, _ = await asyncio.wait((game, room), return_when=asyncio.FIRST_COMPLETED)
-            if room in done:
-                await guest.close()
-            await game
-        finally:
-            room.cancel()
-            await asyncio.gather(room, return_exceptions=True)
+        await watch_session(guest, pid)
     finally:
         await guest.close()
 

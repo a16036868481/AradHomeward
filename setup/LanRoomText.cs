@@ -72,6 +72,12 @@ internal static class LanRoomText
         { "lan_game_start_failed", new[]{ "已连接房间，但游戏未能启动。", "已連線至房間，但遊戲未能啟動。", "Connected to the room, but the game did not start.",
             "ルームに接続しましたが、ゲームを起動できませんでした。", "방에 연결했지만 게임을 시작할 수 없습니다." } },
         { "lan_connecting", new[]{ "正在连接房间…", "正在連線至房間…", "Connecting to room…", "ルームに接続中…", "방에 연결하는 중…" } },
+        { "lan_reconnect", new[]{ "重新加入房间", "重新加入房間", "Rejoin room", "ルームに再接続", "방에 다시 참가" } },
+        { "lan_disconnected", new[]{ "已与房间断开连接。重新加入会重启游戏，并载入原玩家存档。", "已與房間中斷連線。重新加入會重啟遊戲，並載入原玩家存檔。",
+            "Connection lost. Rejoining restarts the game and loads the save for your player name.", "接続が切れました。再接続するとゲームを起動し直し、プレイヤーのセーブデータを読み込みます。",
+            "방 연결이 끊겼습니다. 다시 참가하면 게임을 재시작하고 플레이어 저장 데이터를 불러옵니다." } },
+        { "lan_close_old_game", new[]{ "请先关闭刚才的游戏窗口，再重新加入。", "請先關閉剛才的遊戲視窗，再重新加入。", "Close the previous game window, then rejoin.",
+            "前のゲーム画面を閉じてから再接続してください。", "이전 게임 창을 닫은 뒤 다시 참가해 주세요." } },
         { "lan_starting", new[]{ "已连接，正在启动游戏…", "已連線，正在啟動遊戲…", "Connected. Starting the game…", "接続しました。ゲームを起動中…", "연결되었습니다. 게임을 시작하는 중…" } },
     };
 
