@@ -102,7 +102,7 @@ internal sealed class LanRoomWindow : Form
         actions.FlowDirection = FlowDirection.RightToLeft;
         actions.WrapContents = false;
         primary = new Button();
-        StyleButton(primary, hosting ? "lan_create" : "lan_join", true);
+        StyleButton(primary, hosting ? "lan_open" : "lan_connect_play", true);
         if (hosting)
         {
             StyleButton(copy, "lan_copy", true);
@@ -148,7 +148,7 @@ internal sealed class LanRoomWindow : Form
             addresses.Visible = !opened;
             endpoint.Visible = opened;
             copy.Visible = opened;
-            StyleButton(primary, opened ? "lan_close" : "lan_create", !opened);
+            StyleButton(primary, opened ? "lan_close" : "lan_open", !opened);
             AcceptButton = opened ? copy : primary;
             if (!opened && addresses.Items.Count == 0) SetStatus("lan_invalid_address");
         };

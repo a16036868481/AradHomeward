@@ -13,7 +13,7 @@ $taskDefines = @()
 if ($Portable) { $taskDefines += '/define:PORTABLE' }
 & $taskCompiler /nologo /target:winexe /platform:anycpu "/out:$OutputPath" "/win32icon:$taskIcon" "/win32manifest:$taskManifest" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Web.Extensions.dll @taskDefines $taskSources
 if ($LASTEXITCODE -ne 0) { throw '会话控制器编译失败。' }
-$taskBuildInfo = @{version='2.6.0.29';portable=[bool]$Portable;output=[IO.Path]::GetFullPath($OutputPath);sha256=(Get-FileHash -LiteralPath $OutputPath -Algorithm SHA256).Hash.ToLowerInvariant();sources=@{}}
+$taskBuildInfo = @{version=(Get-Item -LiteralPath $OutputPath).VersionInfo.FileVersion;portable=[bool]$Portable;output=[IO.Path]::GetFullPath($OutputPath);sha256=(Get-FileHash -LiteralPath $OutputPath -Algorithm SHA256).Hash.ToLowerInvariant();sources=@{}}
 foreach($taskSource in $taskSources){$taskBuildInfo.sources[[IO.Path]::GetFileName($taskSource)]=(Get-FileHash -LiteralPath $taskSource -Algorithm SHA256).Hash.ToLowerInvariant()}
 [IO.File]::WriteAllText($OutputPath+'.build.json',($taskBuildInfo | ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
 Get-FileHash -LiteralPath $OutputPath -Algorithm SHA256

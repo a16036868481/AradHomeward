@@ -4,23 +4,23 @@
 
 ## 1. Download and extract
 
-Extract the whole `AradHomeward-v2.6.0-preview.30-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
+Extract the whole `AradHomeward-v2.6.0-preview.31-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
 
 Keep the extracted files and folders together. The package requires Windows 10 or 11 x64.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.30-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.31-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Create a local account
 
-Double-click **AradHomeward.exe**. The first screen contains **New account**, because the public package does not contain another player's save. Enter a visible name, then click **Create account**. No password or account number is requested.
+Double-click **AradHomeward.exe**. On the first screen, enter an account name and select **Save account**. The name identifies your local saves.
 
 ![New account screen](images/launcher-new-en-US.png)
 
 The local server creates the internal credentials automatically. Keep the extraction folder to preserve your saves.
 
-## 3. Choose language and sign in
+## 3. Choose a language and start playing
 
-Choose the saved account and click **Play selected**. Later launches remember your selection. You can create additional named accounts from the same screen.
+Choose a saved account and select **Play solo**. The launcher remembers your selection. Use **New account** to create another local account.
 
 ![Account selection and language](images/launcher-select-en-US.png)
 
@@ -30,8 +30,8 @@ This is a translation preview: some original text, bitmap text and voices remain
 
 ## 4. Play on the local network
 
-1. On the host PC, select an account in the launcher and choose **Create room**. Once the room opens, select **Copy invitation**.
-2. On the guest PC, choose **Join room**, paste the invitation and enter a player name.
+1. On the host PC, select an account in the launcher and choose **Host LAN game**. Once the room opens, select **Copy invitation**.
+2. On the guest PC, choose **Join LAN game**, paste the invitation, enter a player name and select **Connect and play**.
 3. Both players choose the same channel. The host PC saves guest progress.
 
 The room panel shows the address, connected guests and controls to copy the invitation or close the room. Use the same LAN build and connect both PCs to the same local network. [LAN room guide](LAN.md)

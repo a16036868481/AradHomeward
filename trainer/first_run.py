@@ -106,7 +106,11 @@ def _ensure_identity(root):
 
 if __name__ == '__main__':
     try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from pet_evolution import install
+
         ensure_identity()
+        install(ROOT/'DNF60_ACT12/ACT12_Server/dnf_a12.sqlite')
     except Exception as error:
-        print('Local login setup failed: '+str(error), file=sys.stderr)
+        print('Local game setup failed: '+str(error), file=sys.stderr)
         raise SystemExit(1)

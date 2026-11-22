@@ -23,7 +23,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
-from bridge import forward_until_closed, installed_server_endpoints
+from bridge import Session, forward_until_closed, installed_server_endpoints
 from local_profiles import account_name, authenticate_local, password_hash
 from relay_config import endpoints
 
@@ -339,7 +339,12 @@ class RoomHost:
             raise RoomError('lan_channel_closed') from None
         try:
             await write_message(writer, {'ok': True})
-            await forward_until_closed(copy_stream(reader, server), copy_stream(upstream, writer))
+            if port in (GAME_PORT, endpoints(self.profiles.root / 'DNF60_ACT12/ACT12_Server')[0]):
+                await forward_until_closed(copy_stream(reader, server), copy_stream(upstream, writer))
+            else:
+                # The guest uses its existing authenticated game connection.
+                # It shares quest replies without becoming a local editor session.
+                await Session(None, reader, writer, port).relay_channel(upstream, server)
         finally:
             await close_writer(server)
 

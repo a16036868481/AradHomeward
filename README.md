@@ -6,7 +6,7 @@ A portable Windows ACT12 / level-60 local game package with a name-only account 
 
 **[Windows releases](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-`AradHomeward-v2.6.0-preview.30-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
+`AradHomeward-v2.6.0-preview.31-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
 
 Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 

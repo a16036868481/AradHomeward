@@ -1,9 +1,14 @@
 # Changes
 
+## v2.6.0-preview.31 — 2026-11-22
+
+- Restored seven legacy pet evolutions. Turning in an eligible quest evolves the equipped pet, preserves its identity and progression, and consumes the required materials in the same transaction.
+- Renamed the launcher actions in all five languages. The buttons now identify solo play, hosting a LAN game and joining a LAN game.
+
 ## v2.6.0-preview.30 — 2026-11-22
 
 - Restored Seria's automatic introductory quest after finishing the tutorial or using Return to town. Repaired four blocked quest steps in the Birken, Cartel and Riku routes.
-- Checked prerequisites, objectives, drops and completion records across 2,179 indexed quests. The reference quest parser still lacks seven legacy pet evolution rewards.
+- Checked prerequisites, objectives, drops and completion records across 2,179 indexed quests.
 
 ## v2.6.0-preview.29 — 2026-11-22
 

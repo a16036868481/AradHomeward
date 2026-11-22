@@ -7,11 +7,20 @@ internal static class LanRoomText
     private static readonly string[] Locales = { "zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR" };
     private static readonly Dictionary<string, string[]> Text = new Dictionary<string, string[]>
     {
+        { "account_new", new[]{ "新建本地账号", "新增本機帳號", "New account", "アカウント作成", "로컬 계정 만들기" } },
+        { "account_save", new[]{ "保存账号", "儲存帳號", "Save account", "アカウントを保存", "계정 저장" } },
+        { "account_back", new[]{ "返回账号列表", "返回帳號清單", "Back to accounts", "アカウント一覧に戻る", "계정 목록으로" } },
+        { "account_play_solo", new[]{ "开始单人游戏", "開始單人遊戲", "Play solo", "ソロで遊ぶ", "혼자 플레이" } },
+        { "account_saved", new[]{ "账号已保存。现在可以开始单人游戏或创建局域网房间。", "帳號已儲存。現在可開始單人遊戲或建立區域網路房間。",
+            "Account saved. You can now play solo or host a LAN game.", "アカウントを保存しました。ソロで遊ぶか、LANルームを作れます。", "계정을 저장했습니다. 혼자 플레이하거나 LAN 방을 열 수 있습니다." } },
+        { "launcher_lan_host", new[]{ "创建局域网房间", "開設區網房間", "Host LAN game", "LANルームを作る", "LAN 방 만들기" } },
+        { "launcher_lan_join", new[]{ "加入局域网房间", "加入區網房間", "Join LAN game", "LANルームに参加", "LAN 방 참가" } },
         { "lan_room", new[]{ "局域网房间", "區域網路房間", "LAN room", "LANルーム", "LAN 방" } },
         { "lan_join", new[]{ "加入房间", "加入房間", "Join room", "ルームに参加", "방 참가" } },
+        { "lan_connect_play", new[]{ "连接房间并进入游戏", "連線並進入遊戲", "Connect and play", "接続してプレイ", "접속하여 플레이" } },
         { "lan_invite", new[]{ "房间邀请", "房間邀請", "Room invitation", "招待コード", "방 초대 코드" } },
         { "lan_name", new[]{ "玩家名称", "玩家名稱", "Player name", "プレイヤー名", "플레이어 이름" } },
-        { "lan_create", new[]{ "创建房间", "建立房間", "Create room", "ルームを作成", "방 만들기" } },
+        { "lan_open", new[]{ "开放房间", "開放房間", "Open room", "ルームを開く", "방 열기" } },
         { "lan_creating", new[]{ "正在创建局域网房间…", "正在建立區域網路房間…", "Creating LAN room…", "LANルームを作成中…", "LAN 방을 만드는 중…" } },
         { "lan_enter_account", new[]{ "请先填写账号名称，再创建房间。", "請先填寫帳號名稱，再建立房間。", "Enter an account name to create a room.",
             "アカウント名を入力してからルームを作成してください。", "계정 이름을 입력한 뒤 방을 만들어 주세요." } },

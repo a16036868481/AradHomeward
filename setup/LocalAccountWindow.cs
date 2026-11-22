@@ -92,12 +92,12 @@ internal sealed class LocalAccountWindow : Form
         accounts.BorderStyle=BorderStyle.None;accounts.BackColor=Color.FromArgb(36,40,47);accounts.ForeColor=ink;accounts.IntegralHeight=false;
         accounts.DrawItem+=(s,e)=>DrawAccount(e);accounts.SelectedIndexChanged+=(s,e)=>{login.Enabled=!busy&&accounts.SelectedIndex>=0;accounts.Invalidate();};
         accounts.DoubleClick+=(s,e)=>Login();listPane.Controls.Add(accounts);
-        ConfigureButton(create,"新建账号",false,()=>ShowCreate());
-        ConfigureButton(login,"选择账号登录",true,()=>Login());
-        ConfigureButton(save,"创建并选中",true,()=>CreateAccount());
-        ConfigureButton(back,"返回账号列表",false,()=>ShowList());
-        ConfigureButton(lan,"加入房间",false,JoinRoom);
-        ConfigureButton(hostRoom,"创建房间",false,CreateRoom);
+        ConfigureButton(create,"account_new",false,()=>ShowCreate());
+        ConfigureButton(login,"account_play_solo",true,()=>Login());
+        ConfigureButton(save,"account_save",true,()=>CreateAccount());
+        ConfigureButton(back,"account_back",false,()=>ShowList());
+        ConfigureButton(lan,"launcher_lan_join",false,JoinRoom);
+        ConfigureButton(hostRoom,"launcher_lan_host",false,CreateRoom);
         hostRoom.BackColor=Color.FromArgb(63,52,37);
         hostRoom.ForeColor=gold;
         hostRoom.FlatAppearance.BorderColor=gold;
@@ -213,8 +213,9 @@ internal sealed class LocalAccountWindow : Form
         createPane.Bounds=body.ClientRectangle;listPane.Bounds=body.ClientRectangle;accounts.Bounds=listPane.ClientRectangle;
         name.Width=content;
         nameHint.Width=content;
-        int y=ClientSize.Height-83,gap=8,mainWidth=Math.Min(169,content*3/10);
-        int buttonWidth=Math.Max(1,(content-mainWidth-3*gap)/3);
+        int y=ClientSize.Height-83,gap=8;
+        int buttonWidth=Math.Max(1,(content-3*gap)/4);
+        int mainWidth=Math.Max(1,content-3*(buttonWidth+gap));
         create.SetBounds(pad,y,buttonWidth,37);back.Bounds=create.Bounds;
         hostRoom.SetBounds(pad+buttonWidth+gap,y,buttonWidth,37);
         lan.SetBounds(pad+2*(buttonWidth+gap),y,buttonWidth,37);
@@ -224,24 +225,22 @@ internal sealed class LocalAccountWindow : Form
     private void ApplyLanguage()
     {
         Text=LanguageSupport.Text("阿拉德·归途 · 选择账号");
-        heading.Text=LanguageSupport.Text(creating?"新建账号":"选择账号");
+        heading.Text=creating?LanRoomWindow.TextFor(create.Name):LanguageSupport.Text("选择账号");
         caption.Text=LanguageSupport.Text(creating?"只需填写一个账号名称":"选中已保存的账号，继续你的冒险");
         nameLabel.Text=LanguageSupport.Text("账号名称");name.AccessibleName=nameLabel.Text;
         accounts.AccessibleName=LanguageSupport.Text("已保存的账号");language.AccessibleName=LanguageSupport.Text("语言");
         nameHint.Text=LanguageSupport.Text("给这个账号起个名字，角色和进度会保存在这里。");
-        foreach(var pair in new[]{new KeyValuePair<Button,string>(create,"新建账号"),new KeyValuePair<Button,string>(login,"选择账号登录"),new KeyValuePair<Button,string>(save,"创建并选中"),new KeyValuePair<Button,string>(back,"返回账号列表")})
-        {pair.Key.Text=LanguageSupport.Text(pair.Value);pair.Key.AccessibleName=pair.Key.Text;}
-        lan.Text=lan.AccessibleName=LanRoomWindow.TextFor("lan_join");
-        hostRoom.Text=hostRoom.AccessibleName=LanRoomWindow.TextFor("lan_create");
+        foreach(var button in new[]{create,login,save,back,lan,hostRoom})
+            button.Text=button.AccessibleName=LanRoomWindow.TextFor(button.Name);
         languageInfo.Text=LanguageSupport.Coverage();
         if(!busy)SetStatus(statusText,statusIsError);
         RefreshAccountNames();
         
         accounts.Invalidate();
     }
-    private void ConfigureButton(Button b,string text,bool primary,Action action)
+    private void ConfigureButton(Button b,string key,bool primary,Action action)
     {
-        b.Text=text;b.Name=text;b.AccessibleName=text;b.FlatStyle=FlatStyle.Flat;b.FlatAppearance.BorderSize=primary?0:1;
+        b.Name=key;b.FlatStyle=FlatStyle.Flat;b.FlatAppearance.BorderSize=primary?0:1;
         b.FlatAppearance.BorderColor=Color.FromArgb(81,84,91);b.BackColor=primary?gold:Color.FromArgb(44,48,55);b.ForeColor=primary?Color.FromArgb(31,33,38):ink;
         b.Font=new Font(Font.FontFamily,10F,primary?FontStyle.Bold:FontStyle.Regular);b.Cursor=Cursors.Hand;b.Click+=(s,e)=>action();
     }
@@ -269,7 +268,7 @@ internal sealed class LocalAccountWindow : Form
     }
     private void ShowCreate()
     {
-        creating=true;heading.Text=LanguageSupport.Text("新建账号");caption.Text=LanguageSupport.Text("只需填写一个账号名称");
+        creating=true;heading.Text=LanRoomWindow.TextFor(create.Name);caption.Text=LanguageSupport.Text("只需填写一个账号名称");
         createPane.Visible=true;listPane.Visible=false;create.Visible=false;login.Visible=false;save.Visible=true;back.Visible=profiles.Count>0;
         AcceptButton=save;if(loaded){name.Clear();name.Focus();}
     }
@@ -282,7 +281,7 @@ internal sealed class LocalAccountWindow : Form
     private async void CreateAccount()
     {
         if(busy||!creating)return;string text=name.Text;
-        await Work("account-create",async()=>{SetStatus("正在创建账号并保存存档备份…");ApplyState(await Task.Run(()=>request(Data("operation","create","name",text))));name.Clear();SetStatus("账号已创建并选中，点击“选择账号登录”开始游戏。");});
+        await Work("account-create",async()=>{SetStatus("正在创建账号并保存存档备份…");ApplyState(await Task.Run(()=>request(Data("operation","create","name",text))));name.Clear();SetStatus("account_saved");});
     }
     private async void Login()
     {

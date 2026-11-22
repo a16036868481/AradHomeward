@@ -9,6 +9,7 @@ import asyncio, ctypes, ctypes.wintypes as wt, logging, socket, sqlite3, struct,
 from pathlib import Path
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from assets import GAME, u32
+from pet_evolution import EVOLUTIONS
 from relay_config import relay_tcp_port
 
 DB = GAME/'ACT12_Server'/'dnf_a12.sqlite'
@@ -18,6 +19,11 @@ DEC = bytes((((v<<6)|(v>>2))&255)^0xb5 for v in range(256))
 LOG = logging.getLogger('dnf60.bridge')
 REPLY_TIMEOUT_SECONDS = 8
 DISCONNECTED = (asyncio.IncompleteReadError, ConnectionError, asyncio.CancelledError)
+FINISH_QUEST = 36
+PET_EVOLUTION_REWARD = 10
+CHARACTER_INFO = 2
+CREATURE_EXPERIENCE = 102
+CREATURE_ITEM_LIST = 105
 # Native notifications for dungeon info and map start, including tower and altar.
 DUNGEON_LOAD_NOTICES = {28, 29, 154, 155, 225, 226}
 
@@ -34,6 +40,21 @@ def command(id,body,sequence):
 def notification(id,body):
     body = (body + b'\0'*4).translate(ENC)
     return struct.pack('<BHI',0,id,7+len(body)) + body
+
+
+def creature_list_body(rows):
+    body = bytearray((len(rows),))
+    for row in rows:
+        try:
+            name = row['name'].encode('gbk')
+        except UnicodeEncodeError:
+            name = b''
+        if len(name) >= 30:
+            name = b''
+        body += struct.pack('<IBIBI', row['creature_uid'], int(row['stomach']),
+                            row['experience'], row['level'], len(name))
+        body += name + bytes((row['no_charge'],))
+    return bytes(body)
 
 class DbConnection(sqlite3.Connection):
     def __exit__(self,*args):
@@ -113,6 +134,7 @@ class Session:
         self.lock=asyncio.Lock(); self.operation_lock=asyncio.Lock()
         self.seq=0; self.account_id=0; self.character_id=0; self.pending_character=0; self.actor_id=0
         self.pending={}; self.closed=False; self.in_dungeon=False
+        self.pet_refresh = b''
 
     async def run(self):
         try:
@@ -122,7 +144,7 @@ class Session:
                 await self.entrance()
             else:
                 self.bridge.sessions.add(self)
-                await forward_until_closed(self.from_client(), self.from_server())
+                await self.relay_channel(self.server_reader, self.server_writer)
         except DISCONNECTED: pass
         except Exception as e: LOG.warning('connection port=%s: %s',self.port,e)
         finally:
@@ -168,6 +190,10 @@ class Session:
                 self.writer.write(header+body); await self.writer.drain()
         await forward_until_closed(c2s(), s2c())
 
+    async def relay_channel(self, reader, writer):
+        self.server_reader, self.server_writer = reader, writer
+        await forward_until_closed(self.from_client(), self.from_server())
+
     async def from_client(self):
         while True:
             h=await self.reader.readexactly(13); length=u32(h,3)
@@ -175,11 +201,22 @@ class Session:
             encrypted=await self.reader.readexactly(length-13)
             id=struct.unpack_from('<H',h,1)[0]
             async with self.lock:
+                sequence = self.seq if self.bridge else struct.unpack_from('<H', h, 11)[0]
+                if self.bridge:
+                    h = h[:11] + struct.pack('<H', sequence)
+                    self.seq = (self.seq + 1) & 65535
+                packet = h + encrypted
                 if id in (1,4,7):
                     body=aes(encrypted) if encrypted else b''
                     self.observe_command(id,body)
-                h=bytearray(h); struct.pack_into('<H',h,11,self.seq); self.seq=(self.seq+1)&65535
-                self.server_writer.write(h+encrypted); await self.server_writer.drain()
+                elif id == FINISH_QUEST and encrypted:
+                    body = aes(encrypted)
+                    if len(body) >= 8:
+                        operation, quest, choice, count = struct.unpack_from('<4H', body)
+                        if operation == FINISH_QUEST and quest in EVOLUTIONS and count > 1:
+                            # One equipped pet can evolve once in a turn-in.
+                            packet = command(id, struct.pack('<4H', operation, quest, choice, 1) + body[8:], sequence)
+                self.server_writer.write(packet); await self.server_writer.drain()
 
     def observe_command(self,id,body):
         if id==1 and len(body)>=4:
@@ -194,7 +231,7 @@ class Session:
             with connect_db() as db:
                 rows=db.execute('select character_id from characters where account_id=? order by case when display_order<0 then slot_index else display_order end,slot_index limit 16',(self.account_id,)).fetchall()
             if body[0]<len(rows): self.pending_character=rows[body[0]][0]
-        elif id==7: self.character_id=0; self.in_dungeon=False
+        elif id==7: self.character_id=0; self.in_dungeon=False; self.pet_refresh=b''
 
     async def from_server(self):
         while True:
@@ -207,15 +244,57 @@ class Session:
                 self.observe_reply(id, body)
                 if self.complete_helper_reply(id, body):
                     continue
+                if id == FINISH_QUEST:
+                    evolved_reply = self.pet_evolution_reply(body)
+                    if evolved_reply is not None:
+                        encrypted = evolved_reply.translate(ENC)
+                        h = struct.pack('<BHI', type, id, 7 + len(encrypted))
             elif type==0 and (id==3 or id in DUNGEON_LOAD_NOTICES):
                 self.observe_scene(id, encrypted.translate(DEC))
-            self.writer.write(h+encrypted);await self.writer.drain()
+            self.writer.write(h+encrypted)
+            if type == 0 and id == CHARACTER_INFO and self.pet_refresh:
+                details = encrypted[:5].translate(DEC)
+                if details == struct.pack('<BHH', 1, 1, self.actor_id):
+                    # The native details packet equips the new item and binds
+                    # its creature UID. Refresh that instance's saved state.
+                    self.writer.write(self.pet_refresh)
+                    self.pet_refresh = b''
+            await self.writer.drain()
+
+    def pet_evolution_reply(self, body):
+        if not self.character_id or len(body) < 10 or body[0] != 1:
+            return None
+        quest = struct.unpack_from('<H', body, 1)[0]
+        rule = EVOLUTIONS.get(quest)
+        if rule is None:
+            return None
+        # The legacy quest parser uses the empty item reward for the transaction.
+        # Restore the native evolution reward code after the save commits.
+        reward_offset = 9 + body[8] * 7 if body[3] == 0 else 8
+        if body[reward_offset:reward_offset + 2] != b'\0\0':
+            return None
+        with connect_db() as db:
+            pets = db.execute('''SELECT c.*, i.item_space, i.slot_index FROM character_items i
+                JOIN character_creatures c USING (character_id, creature_uid, item_key)
+                WHERE i.character_id=? AND (i.expires_at=0 OR i.expires_at>unixepoch())
+                ORDER BY c.creature_uid''', (self.character_id,)).fetchall()
+        evolved = next((pet for pet in pets if pet['item_space'] == 3 and pet['slot_index'] == 19
+                        and pet['item_key'] == rule.target_item), None)
+        if evolved:
+            self.pet_refresh = notification(CREATURE_EXPERIENCE, struct.pack('<BI', evolved['level'], evolved['experience']))
+            if len(pets) <= 255:
+                self.pet_refresh = notification(CREATURE_ITEM_LIST, creature_list_body(pets)) + self.pet_refresh
+            LOG.info('pet evolution character=%s quest=%s target=%s', self.character_id, quest, rule.target_item)
+            return body[:reward_offset] + bytes((PET_EVOLUTION_REWARD,)) + body[reward_offset + 2:]
+        LOG.error('successful quest had no evolved pet character=%s quest=%s', self.character_id, quest)
+        return None
 
     def observe_reply(self, opcode, body):
         if opcode == 4 and len(body) >= 11 and body[0] == 1:
             self.character_id = u32(body, 1)
             self.actor_id = struct.unpack_from('<H', body, 9)[0]
             self.in_dungeon = False
+            self.pet_refresh = b''
             LOG.info('local online character=%s account=%s', self.character_id, self.account_id)
         elif opcode == 38 and body[:2] == b'\0\0':
             # The native server acknowledges area changes only after leaving a dungeon.

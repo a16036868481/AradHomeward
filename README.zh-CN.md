@@ -6,7 +6,7 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 
 **[Windows 发布页](https://github.com/a16036868481/AradHomeward/releases)** · **[中文图文说明](docs/USAGE.zh-CN.md)** · **[English guide](docs/USAGE.en.md)**
 
-`AradHomeward-v2.6.0-preview.30-win-x64.zip` 是 Windows 完整包，包含游戏、本机服务、桌面修改器和局域网房间。
+`AradHomeward-v2.6.0-preview.31-win-x64.zip` 是 Windows 完整包，包含游戏、本机服务、桌面修改器和局域网房间。
 
 解压到新文件夹即可试用，原安装目录里的存档可继续保留。双击解压目录最外层的 `AradHomeward.exe` 启动。
 
