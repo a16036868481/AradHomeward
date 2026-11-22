@@ -8,6 +8,8 @@ A portable Windows ACT12 / level-60 local game package with a name-only account 
 
 Download `AradHomeward-v2.6.0-preview.27-win-x64.zip` from the release's **Assets**. This ZIP includes the game, server, native editor and LAN room support.
 
+If preview.27 closes before the account screen or says the account window is already open, merge the startup repair's `app` folder into the folder with `AradHomeward.exe`. [Startup repair for preview.27](https://github.com/a16036868481/AradHomeward/releases/download/v2.6.0-preview.27/AradHomeward-v2.6.0-preview.27-StartupRepair.zip)
+
 ![Account selection example](docs/images/launcher-select-en-US.png)
 
 ## Start playing

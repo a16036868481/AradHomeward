@@ -19,8 +19,8 @@ using Dnf60Lifecycle;
 [assembly: System.Reflection.AssemblyTitle("阿拉德·归途 · 会话服务")]
 [assembly: System.Reflection.AssemblyCompany("eirros")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: System.Reflection.AssemblyVersion("2.6.0.27")]
-[assembly: System.Reflection.AssemblyFileVersion("2.6.0.27")]
+[assembly: System.Reflection.AssemblyVersion("2.6.0.28")]
+[assembly: System.Reflection.AssemblyFileVersion("2.6.0.28")]
 
 internal static partial class Dnf60Control
 {
@@ -67,7 +67,19 @@ internal static partial class Dnf60Control
             {if(!created)return 0;Application.Run(new ServerBackgroundContext());instance.ReleaseMutex();}
             return 0;
         }
-        try { Run(action); return 0; }
+        try
+        {
+            if(action=="start")
+            {
+                using(var startup=ControlLocks.Shared.TryStartup(Root))
+                {
+                    if(startup==null)ForegroundStandaloneAccounts();
+                    else Run(action);
+                }
+            }
+            else Run(action);
+            return 0;
+        }
         catch (Exception ex)
         {
             Log("ERROR " + action + " " + ex.Message);
@@ -107,11 +119,14 @@ internal static partial class Dnf60Control
                     if(LanGuestRunning())ForegroundGame();
                     else{StartServices();Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);}
                 }
-                else if(LauncherMode.UseCompatibility(Root))
+                else if(ForegroundStandaloneAccounts())
                 {
-                    if(!ForegroundStandaloneAccounts())
-                        compatibleStarted=Launch(Application.ExecutablePath,"--compat-accounts",Root,false);
+                    Log("FOREGROUND installed compatibility account window");
+                    Result("start",true,"兼容账号窗口已显示，等待选择账号登录。");
+                    return;
                 }
+                else if(LauncherMode.UseCompatibility(Root))
+                    compatibleStarted=Launch(Application.ExecutablePath,"--compat-accounts",Root,false);
                 else if(Owned(Client).Length==0)
                     originalStarted=Launch(Path.Combine(Client, "开始游戏.exe"), "", Client, false);
                 else
@@ -188,7 +203,7 @@ internal static partial class Dnf60Control
     {
         StandaloneAccounts=true;
         if(ForegroundStandaloneAccounts())return;
-        using(ControlLocks.Shared.AccountPane())
+        using(ControlLocks.Shared.AccountPane(Root,0))
         using(var ready=new EventWaitHandle(false,EventResetMode.ManualReset,LauncherStartupMonitor.ReadyEvent(Process.GetCurrentProcess().Id)))
         {
             if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);return;}
@@ -235,7 +250,7 @@ internal static partial class Dnf60Control
                 throw new InvalidOperationException("账号选择区只能嵌入当前游戏的原版启动器。");
         OriginalLauncherPid=pid;
         AccountStage("launcher-ui-attaching","正在加载原版启动器的账号选择区。");
-        using(ControlLocks.Shared.AccountPane())
+        using(ControlLocks.Shared.AccountPane(Root,pid))
         using(var ready=new EventWaitHandle(false,EventResetMode.ManualReset,LauncherStartupMonitor.ReadyEvent(pid)))
         {
             if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);PostMessage(parent,0x0010,IntPtr.Zero,IntPtr.Zero);return;}

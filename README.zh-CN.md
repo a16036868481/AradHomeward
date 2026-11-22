@@ -8,6 +8,8 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 
 请在 Release 的 **Assets** 中下载 `AradHomeward-v2.6.0-preview.27-win-x64.zip`。压缩包包含完整游戏、本机服务、桌面修改器和局域网功能。
 
+如果 preview.27 在账号界面出现前退出，或提示账号窗口已经打开，请将启动修复包中的 `app` 合并到 `AradHomeward.exe` 所在目录。[preview.27 启动修复包](https://github.com/a16036868481/AradHomeward/releases/download/v2.6.0-preview.27/AradHomeward-v2.6.0-preview.27-StartupRepair.zip)
+
 ![账号选择示例](docs/images/launcher-select-zh-Hans.png)
 
 ## 开始游戏

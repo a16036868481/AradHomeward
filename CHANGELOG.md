@@ -1,5 +1,11 @@
 # Changes
 
+## Startup repair for v2.6.0-preview.27 — 2026-11-22
+
+- Each installation manages its account window separately. The compatibility window can open while an older launcher still holds the global account-window lock.
+- Repeated starts bring the existing compatibility window forward. The repair ZIP selects that window directly and refreshes startup and language integrity checks.
+- A Windows test reproduced the previous startup failure with a controlled launcher exit and the old mutex held. With the repair applied, the account window opened, diagnostics passed and the game reached character selection.
+
 ## v2.6.0-preview.27 — 2026-11-22
 
 - Start a private LAN room from the saved-account screen. The room window shows the address, connected guests, and a copy-invitation button. Guests join by invitation and player name.
