@@ -1,5 +1,5 @@
 {
-  "version": "2.6.0-preview.32",
+  "version": "2.6.0-preview.33",
   "checkedOn": "2026-11-23",
   "automatedTestsPassed": 16,
   "startupDiagnosticChecksPassed": 7,
@@ -15,6 +15,17 @@
     "cleanSaveIntegrity": true,
     "firstRunIdentityVerifiedInTemporaryFixture": true
   },
+  "launcherModes": {
+    "layoutLanguages": ["zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR"],
+    "layoutScreens": ["mode selection", "multiplayer", "new account", "saved accounts"],
+    "nativeWindowsChecks": [
+      "mode selection in the original and compatibility launcher windows",
+      "saved account started a solo session and reached channel selection",
+      "local account hosted a LAN room and reached channel selection",
+      "guest without a local profile could open and cancel the join dialog"
+    ]
+  },
+  "carriedForwardRuntimeChecksFrom": "2.6.0-preview.32",
   "nativeServerSkillRegression": {
     "baseClasses": 7,
     "tested": [

@@ -1,5 +1,11 @@
 # Changes
 
+## v2.6.0-preview.33 — 2026-11-23
+
+- Added a mode selection screen to both launcher variants, with labels in all five supported languages.
+- Single-player opens the local account list or name-only account creation. Multiplayer offers hosting with a local account and joining by invitation and player name.
+- Added a cancel button to the join dialog and updated the bilingual illustrated guide for both modes.
+
 ## v2.6.0-preview.32 — 2026-11-23
 
 - Kept learned skills, both plans and skill shortcuts when saving the current class. Editing either plan's remaining SP refreshes the game immediately, including when a plan has no learned skills.

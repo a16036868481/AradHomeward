@@ -4,15 +4,19 @@
 
 ## 1. 下载并完整解压
 
-将 `AradHomeward-v2.6.0-preview.32-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
+将 `AradHomeward-v2.6.0-preview.33-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
 
 解压后的程序和数据文件夹请一起保留。本包需要 Windows 10/11 64 位。
 
-需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.32-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
+需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.33-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
 
-## 2. 第一次创建账号
+## 2. 选择模式与新建账号
 
-双击 **AradHomeward.exe**。首次打开会显示“新建本地账号”。填好账号名称后，点击“保存账号”。
+双击 **AradHomeward.exe**，先选「单人模式」或「多人模式」。
+
+![单人模式与多人模式入口](images/launcher-modes-zh-Hans.png)
+
+首次选择「单人模式」后，填写账号名称并点「保存账号」。
 
 ![首次新建账号页面](images/launcher-new-zh-Hans.png)
 
@@ -30,8 +34,10 @@
 
 ## 4. 局域网联机
 
-1. 房主在启动器选中账号，点「创建局域网房间」。房间开放后，点「复制邀请」。
-2. 朋友打开启动器，点「加入局域网房间」，粘贴邀请、填写玩家名称，再点「连接房间并进入游戏」。
+![多人模式内的创建与加入房间](images/launcher-multiplayer-zh-Hans.png)
+
+1. 房主进入「多人模式 → 创建房间」，新建或选中本地账号后点「创建房间」。房间开放后，点「复制邀请」。
+2. 朋友进入「多人模式 → 加入房间」，粘贴邀请、填写玩家名称，再点「连接房间并进入游戏」。
 3. 双方进入相同频道，来宾的角色和进度保存在房主电脑上。
 
 房间窗口会显示房间地址和来宾人数，并提供「复制邀请」和「关闭房间」。两台电脑使用同一联机版本，并接入同一局域网。[局域网说明](LAN.md)
@@ -72,7 +78,7 @@ Windows 主音量和静音会作用于游戏。首次使用某个输出设备时
 | 现象 | 处理方法 |
 | --- | --- |
 | 缺文件、没有窗口或闪退 | 检查压缩包校验值，重新完整解压到较短且可写的目录，保持所有文件夹在一起。 |
-| 账号窗口未出现 | 从解压目录打开 `AradHomeward.exe`。若仍未打开，运行 `CheckStartup.exe`，收集 `logs/startup-check.json` 和已生成的 `logs/startup-state.json`。 |
+| 模式选择窗口未出现 | 从解压目录打开 `AradHomeward.exe`。若仍未打开，运行 `CheckStartup.exe`，收集 `logs/startup-check.json` 和已生成的 `logs/startup-state.json`。 |
 | 游戏服务启动失败 | 运行 **CheckStartup.exe**，查看检查结果和 `DNF60_ACT12/ACT12_Server/server_log.txt`。中继检查会在 5555 不可用时选择空闲本地端口。 |
 | 提示登录证书不完整或不匹配 | 从备份恢复整个安装目录。不要混用其他安装目录的证书，也不要关闭证书验证。 |
 | 仍显示部分原始文字 | 退出游戏、重新选择语言并启动。反馈时附上语言、具体页面和截图；预览版仍有少量原始资源。 |

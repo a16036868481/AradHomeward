@@ -110,6 +110,13 @@ internal sealed class LanRoomWindow : Form
             actions.Controls.Add(copy);
         }
         actions.Controls.Add(primary);
+        if (!hosting)
+        {
+            var cancel = new Button { DialogResult = DialogResult.Cancel };
+            StyleButton(cancel, "launcher_cancel", false);
+            actions.Controls.Add(cancel);
+            CancelButton = cancel;
+        }
         int actionRow = hosting ? 5 : 6;
         layout.Controls.Add(actions, 0, actionRow);
         status.Dock = DockStyle.Fill;
@@ -230,6 +237,8 @@ internal sealed class LanRoomWindow : Form
         addresses.Enabled = !busy && !opened;
         primary.Enabled = invite.Enabled = player.Enabled = !busy;
         copy.Enabled = !busy && opened && !String.IsNullOrEmpty(invitation);
+        var cancel = CancelButton as Button;
+        if (cancel != null) cancel.Enabled = !busy;
     }
 
     private void SetStatus(string message)

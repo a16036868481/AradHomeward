@@ -19,8 +19,8 @@ using Dnf60Lifecycle;
 [assembly: System.Reflection.AssemblyTitle("阿拉德·归途 · 会话服务")]
 [assembly: System.Reflection.AssemblyCompany("eirros")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: System.Reflection.AssemblyVersion("2.6.0.32")]
-[assembly: System.Reflection.AssemblyFileVersion("2.6.0.32")]
+[assembly: System.Reflection.AssemblyVersion("2.6.0.33")]
+[assembly: System.Reflection.AssemblyFileVersion("2.6.0.33")]
 
 internal static partial class Dnf60Control
 {
@@ -153,7 +153,7 @@ internal static partial class Dnf60Control
                 else if(ForegroundStandaloneAccounts())
                 {
                     Log("FOREGROUND installed compatibility account window");
-                    Result("start",true,"兼容账号窗口已显示，等待选择账号登录。");
+                    Result("start",true,"兼容启动器已显示，等待选择游戏模式。");
                     return;
                 }
                 else if(LauncherMode.UseCompatibility(Root))
@@ -178,7 +178,7 @@ internal static partial class Dnf60Control
                 {
                     string state=LauncherStartupMonitor.Wait(originalStarted,HasGameClient,25000,Log);
                     Log("DONE start "+state);
-                    Result("start",true,state=="account-pane-ready"?"账号选择界面已显示，等待选择账号登录。":"游戏客户端已启动。");
+                    Result("start",true,state=="account-pane-ready"?"启动器已显示，等待选择游戏模式。":"游戏客户端已启动。");
                 }
                 catch(InvalidOperationException)
                 {
@@ -191,7 +191,7 @@ internal static partial class Dnf60Control
                         if(HasGameClient())
                             Result("start",true,"游戏客户端已启动。");
                         else if(ForegroundStandaloneAccounts())
-                            Result("start",true,"兼容账号窗口已显示，等待选择账号登录。");
+                            Result("start",true,"兼容启动器已显示，等待选择游戏模式。");
                         else
                             compatibleStarted=Launch(Application.ExecutablePath,"--compat-accounts",Root,false);
                     }
@@ -202,7 +202,7 @@ internal static partial class Dnf60Control
             {
                 string state=LauncherStartupMonitor.Wait(compatibleStarted,HasGameClient,25000,Log,"本机账号窗口");
                 Log("DONE start compatibility "+state);
-                Result("start",true,state=="account-pane-ready"?"账号选择界面已显示，等待选择账号登录。":"游戏客户端已启动。");
+                Result("start",true,state=="account-pane-ready"?"启动器已显示，等待选择游戏模式。":"游戏客户端已启动。");
             }
     }
 

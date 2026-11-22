@@ -4,15 +4,19 @@
 
 ## 1. Download and extract
 
-Extract the whole `AradHomeward-v2.6.0-preview.32-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
+Extract the whole `AradHomeward-v2.6.0-preview.33-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
 
 Keep the extracted files and folders together. The package requires Windows 10 or 11 x64.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.32-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.33-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
-## 2. Create a local account
+## 2. Choose a mode and create a local account
 
-Double-click **AradHomeward.exe**. On the first screen, enter an account name and select **Save account**. The name identifies your local saves.
+Double-click **AradHomeward.exe** and choose **Single-player** or **Multiplayer**.
+
+![Choose single-player or multiplayer](images/launcher-modes-en-US.png)
+
+When you first choose **Single-player**, enter an account name and select **Save account**. The name identifies your local saves.
 
 ![New account screen](images/launcher-new-en-US.png)
 
@@ -30,8 +34,10 @@ This is a translation preview: some original text, bitmap text and voices remain
 
 ## 4. Play on the local network
 
-1. On the host PC, select an account in the launcher and choose **Host LAN game**. Once the room opens, select **Copy invitation**.
-2. On the guest PC, choose **Join LAN game**, paste the invitation, enter a player name and select **Connect and play**.
+![Host or join a room in multiplayer mode](images/launcher-multiplayer-en-US.png)
+
+1. On the host PC, choose **Multiplayer**, then **Host a room**. Create or select a local account and choose **Host a room**. Once the room opens, select **Copy invitation**.
+2. On the guest PC, choose **Multiplayer**, then **Join a room**. Paste the invitation, enter a player name and select **Connect and play**.
 3. Both players choose the same channel. The host PC saves guest progress.
 
 The room panel shows the address, connected guests and controls to copy the invitation or close the room. Use the same LAN build and connect both PCs to the same local network. [LAN room guide](LAN.md)
@@ -72,7 +78,7 @@ To move your progress, exit normally on both PCs and copy the **entire extracted
 | Symptom | Action |
 | --- | --- |
 | Missing files, no window, or instant exit | Extract the entire ZIP again to a short writable path and check the archive hash. Keep all folders together. |
-| The account window does not appear | Run `AradHomeward.exe` from the extraction folder. For troubleshooting use `CheckStartup.exe` and collect `logs/startup-check.json` and `logs/startup-state.json` if present. |
+| The mode selection window does not appear | Run `AradHomeward.exe` from the extraction folder. For troubleshooting use `CheckStartup.exe` and collect `logs/startup-check.json` and `logs/startup-state.json` if present. |
 | Game service fails to start | Run **CheckStartup.exe** and inspect its report and `DNF60_ACT12/ACT12_Server/server_log.txt`. The relay preflight can select a free local port when 5555 is unavailable. |
 | Login identity is incomplete or mismatched | Restore the complete installation from its backup. Do not copy certificates from another unrelated installation or disable certificate validation. |
 | Some text is still in the original language | Exit, choose the language again and relaunch. Report the language, screen and an image; some original resources remain in this preview. |

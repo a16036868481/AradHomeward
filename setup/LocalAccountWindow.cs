@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
-// The same native account pane can be hosted in the original launcher or shown
+// The same native menu can be hosted in the original launcher or shown
 // in its own window when the legacy launcher crashes on a target computer.
 internal sealed class LocalAccountWindow : Form
 {
@@ -39,26 +39,44 @@ internal sealed class LocalAccountWindow : Form
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr h,int msg,IntPtr w,IntPtr l);
     [DllImport("user32.dll")] internal static extern IntPtr SetThreadDpiAwarenessContext(IntPtr value);
     private struct Rect { public int Left,Top,Right,Bottom; }
+    private enum Page { Modes, Multiplayer, Accounts, NewAccount }
+
+    private sealed class MenuChoice : Button
+    {
+        internal string Description;
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            var area = new Rectangle(17, 54, Width - 34, Height - 65);
+            TextRenderer.DrawText(e.Graphics, Description, Parent.Font, area,
+                Color.FromArgb(170, 174, 181), TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
+        }
+    }
+
     private readonly IntPtr host;
     private readonly int hostPid;
     private readonly Func<Dictionary<string,object>,Dictionary<string,object>> request;
     private readonly Func<string,Action<string>,Func<bool>,Task> launch;
     private readonly Color ink=Color.FromArgb(242,238,228),muted=Color.FromArgb(170,174,181),gold=Color.FromArgb(224,182,105),bg=Color.FromArgb(29,32,38);
-    private readonly Panel body=new Panel(),createPane=new Panel(),listPane=new Panel();
+    private readonly Panel body=new Panel(),createPane=new Panel(),listPane=new Panel(),menuPane=new Panel();
     private readonly ListBox accounts=new ListBox();
     private readonly TextBox name=new TextBox();
     private readonly Label heading=new Label(),caption=new Label(),state=new Label();
     private readonly Label languageInfo=new Label(),nameLabel=new Label(),nameHint=new Label();
     private readonly LanguagePicker language=new LanguagePicker();
-    private readonly Button create=new Button(),login=new Button(),save=new Button(),back=new Button(),lan=new Button(),hostRoom=new Button();
+    private readonly Button create=new Button(),login=new Button(),save=new Button(),back=new Button();
+    private readonly MenuChoice solo=new MenuChoice(),multiplayer=new MenuChoice(),hostRoom=new MenuChoice(),joinRoom=new MenuChoice();
     private readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer {Interval=500};
     private List<Dictionary<string,object>> profiles=new List<Dictionary<string,object>>();
-    private bool busy,creating,loaded,closing;
+    private Page page=Page.Modes;
+    private bool busy,hosting,loaded,closing;
     private Size hostSize=Size.Empty;
     private readonly WinEvent nativeCallback;
     private IntPtr nativeHook;
     private bool hiddenStateRecorded;
-    private string statusText="账号和角色随存档保存，下次打开会记住当前选择。";
+    private const string AccountListHint="账号和角色随存档保存，下次打开会记住当前选择。";
+    private string statusText="";
     private bool statusIsError;
 
     internal LocalAccountWindow(IntPtr parent,int parentPid,
@@ -67,7 +85,7 @@ internal sealed class LocalAccountWindow : Form
     {
         host=parent;hostPid=parentPid;request=transport;launch=start;
         nativeCallback=(hook,evt,h,obj,child,thread,time)=>{if(obj==0&&IsLegacyField(h))HideLegacyField(h);};
-        Name="AradReturnAccounts";Text="阿拉德·归途 · 选择账号";Font=new Font("Microsoft YaHei UI",9F);
+        Name="AradReturnAccounts";Font=new Font("Microsoft YaHei UI",9F);
         FormBorderStyle=host==IntPtr.Zero?FormBorderStyle.FixedSingle:FormBorderStyle.None;
         AutoScaleMode=AutoScaleMode.None;ClientSize=new Size(620,369);BackColor=bg;ForeColor=ink;
         ShowInTaskbar=host==IntPtr.Zero;StartPosition=FormStartPosition.CenterScreen;MaximizeBox=false;
@@ -78,12 +96,13 @@ internal sealed class LocalAccountWindow : Form
         }
         DoubleBuffered=true;
         heading.Font=new Font(Font.FontFamily,17F,FontStyle.Bold);heading.ForeColor=ink;
-        caption.Font=Font;caption.ForeColor=muted;
+        caption.Font=Font;caption.ForeColor=muted;caption.AutoEllipsis=true;
         state.ForeColor=muted;state.AutoEllipsis=true;state.Name="AccountStatus";
         body.BackColor=bg;createPane.BackColor=bg;listPane.BackColor=bg;
         name.Name="LocalAccountName";name.AccessibleName="账号名称";name.MaxLength=24;name.Font=new Font(Font.FontFamily,12F);
         name.BorderStyle=BorderStyle.FixedSingle;name.BackColor=Color.FromArgb(46,50,58);name.ForeColor=ink;
         name.KeyDown+=(s,e)=>{if(e.KeyCode==Keys.Enter){e.SuppressKeyPress=true;if(!busy)CreateAccount();}};
+        name.TextChanged+=(s,e)=>{if(!busy&&page==Page.NewAccount&&statusIsError)SetStatus("");};
         nameLabel.Text="账号名称";nameLabel.ForeColor=ink;nameLabel.AutoSize=true;
         nameHint.Text="给这个账号起个名字，角色和进度会保存在这里。";nameHint.ForeColor=muted;nameHint.AutoSize=false;
         nameLabel.SetBounds(0,10,500,22);name.SetBounds(0,42,540,34);nameHint.SetBounds(0,89,540,24);
@@ -92,15 +111,14 @@ internal sealed class LocalAccountWindow : Form
         accounts.BorderStyle=BorderStyle.None;accounts.BackColor=Color.FromArgb(36,40,47);accounts.ForeColor=ink;accounts.IntegralHeight=false;
         accounts.DrawItem+=(s,e)=>DrawAccount(e);accounts.SelectedIndexChanged+=(s,e)=>{login.Enabled=!busy&&accounts.SelectedIndex>=0;accounts.Invalidate();};
         accounts.DoubleClick+=(s,e)=>Login();listPane.Controls.Add(accounts);
-        ConfigureButton(create,"account_new",false,()=>ShowCreate());
+        ConfigureButton(create,"account_new",false,()=>ShowPage(Page.NewAccount));
         ConfigureButton(login,"account_play_solo",true,()=>Login());
         ConfigureButton(save,"account_save",true,()=>CreateAccount());
-        ConfigureButton(back,"account_back",false,()=>ShowList());
-        ConfigureButton(lan,"launcher_lan_join",false,JoinRoom);
-        ConfigureButton(hostRoom,"launcher_lan_host",false,CreateRoom);
-        hostRoom.BackColor=Color.FromArgb(63,52,37);
-        hostRoom.ForeColor=gold;
-        hostRoom.FlatAppearance.BorderColor=gold;
+        ConfigureButton(back,"launcher_back",false,GoBack);
+        ConfigureChoice(solo,"launcher_solo",()=>OpenAccounts(false));
+        ConfigureChoice(multiplayer,"launcher_multiplayer",()=>ShowPage(Page.Multiplayer));
+        ConfigureChoice(hostRoom,"launcher_lan_host",()=>OpenAccounts(true));
+        ConfigureChoice(joinRoom,"launcher_lan_join",JoinRoom);
         LanguageSupport.Load(Dnf60Control.Root);
         language.Name="GameLanguage";language.AccessibleName="语言 / Language";
         language.BackColor=Color.FromArgb(46,50,58);language.ForeColor=ink;
@@ -114,11 +132,11 @@ internal sealed class LocalAccountWindow : Form
             try{LanguageSupport.Select(((LanguageChoice)language.SelectedItem).Id,true);ApplyLanguage();}
             catch(Exception error){language.SelectedIndex=Array.FindIndex(LanguageSupport.Choices,x=>x.Id==previous);SetStatus(error.Message,true);}
         };
-        body.Controls.AddRange(new Control[]{createPane,listPane});
-        Controls.AddRange(new Control[]{heading,caption,language,languageInfo,body,state,create,login,save,back,hostRoom,lan});
-        body.Visible=false;create.Visible=login.Visible=save.Visible=back.Visible=false;
+        menuPane.Controls.AddRange(new Control[]{solo,multiplayer,hostRoom,joinRoom});
+        body.Controls.AddRange(new Control[]{menuPane,createPane,listPane});
+        Controls.AddRange(new Control[]{heading,caption,language,languageInfo,body,back,create,login,save,state});
         Resize+=(s,e)=>LayoutPane();
-        Shown+=async(s,e)=>
+        Shown+=(s,e)=>
         {
             if(host!=IntPtr.Zero)
             {
@@ -129,13 +147,7 @@ internal sealed class LocalAccountWindow : Form
                 timer.Start();
             }
             if(visible!=null)visible();
-            await Work("account-list",async()=>
-            {
-                var saved=await Task.Run(()=>request(Data("operation","list")));
-                if(!ParentAlive())throw new OperationCanceledException();
-                ApplyState(saved);loaded=true;
-                SetStatus("账号和角色随存档保存，下次打开会记住当前选择。");
-            });
+            FocusPage();
         };
         timer.Tick+=(s,e)=>{if(!ParentAlive()){closing=true;if(!busy)Close();}else{FitHost();HideLegacyFields();}};
         FormClosing+=(s,e)=>
@@ -146,7 +158,8 @@ internal sealed class LocalAccountWindow : Form
             {closing=true;SetStatus("正在取消并完成收尾，请稍候…");}
         };
         FormClosed+=(s,e)=>{timer.Dispose();if(nativeHook!=IntPtr.Zero)UnhookWinEvent(nativeHook);};
-        ApplyLanguage();LayoutPane();
+        ApplyLanguage();
+        ShowPage(Page.Modes);
     }
 
     internal bool ParentAlive()
@@ -208,41 +221,79 @@ internal sealed class LocalAccountWindow : Form
     {
         int w=ClientSize.Width,pad=28,content=Math.Max(100,w-pad*2);
         heading.SetBounds(pad,18,Math.Max(100,content-200),34);caption.SetBounds(pad,57,content,22);
-        language.SetBounds(w-pad-188,23,188,28);languageInfo.SetBounds(pad,81,content,22);
-        body.SetBounds(pad,110,content,Math.Max(116,ClientSize.Height-206));
-        createPane.Bounds=body.ClientRectangle;listPane.Bounds=body.ClientRectangle;accounts.Bounds=listPane.ClientRectangle;
+        int bodyTop=IsMenuPage?90:110;
+        language.SetBounds(w-pad-188,23,188,28);languageInfo.SetBounds(pad,bodyTop-29,content,22);
+        body.SetBounds(pad,bodyTop,content,Math.Max(116,ClientSize.Height-bodyTop-96));
+        menuPane.Bounds=createPane.Bounds=listPane.Bounds=body.ClientRectangle;
+        accounts.Bounds=listPane.ClientRectangle;
         name.Width=content;
         nameHint.Width=content;
-        int y=ClientSize.Height-83,gap=8;
-        int buttonWidth=Math.Max(1,(content-3*gap)/4);
-        int mainWidth=Math.Max(1,content-3*(buttonWidth+gap));
-        create.SetBounds(pad,y,buttonWidth,37);back.Bounds=create.Bounds;
-        hostRoom.SetBounds(pad+buttonWidth+gap,y,buttonWidth,37);
-        lan.SetBounds(pad+2*(buttonWidth+gap),y,buttonWidth,37);
+        int menuWidth=(content-12)/2,menuHeight=Math.Min(138,body.Height);
+        int menuTop=(body.Height-menuHeight)/2;
+        solo.SetBounds(0,menuTop,menuWidth,menuHeight);hostRoom.Bounds=solo.Bounds;
+        multiplayer.SetBounds(menuWidth+12,menuTop,content-menuWidth-12,menuHeight);joinRoom.Bounds=multiplayer.Bounds;
+        int y=ClientSize.Height-83,mainWidth=172;
+        back.SetBounds(pad,y,104,37);
+        create.SetBounds(back.Right+8,y,155,37);
         login.SetBounds(w-pad-mainWidth,y,mainWidth,37);save.Bounds=login.Bounds;
         state.SetBounds(pad,ClientSize.Height-36,content,26);
     }
     private void ApplyLanguage()
     {
-        Text=LanguageSupport.Text("阿拉德·归途 · 选择账号");
-        heading.Text=creating?LanRoomWindow.TextFor(create.Name):LanguageSupport.Text("选择账号");
-        caption.Text=LanguageSupport.Text(creating?"只需填写一个账号名称":"选中已保存的账号，继续你的冒险");
+        Text=LanRoomWindow.TextFor("launcher_title");
         nameLabel.Text=LanguageSupport.Text("账号名称");name.AccessibleName=nameLabel.Text;
         accounts.AccessibleName=LanguageSupport.Text("已保存的账号");language.AccessibleName=LanguageSupport.Text("语言");
         nameHint.Text=LanguageSupport.Text("给这个账号起个名字，角色和进度会保存在这里。");
-        foreach(var button in new[]{create,login,save,back,lan,hostRoom})
+        foreach(var button in new[]{create,save,back})
             button.Text=button.AccessibleName=LanRoomWindow.TextFor(button.Name);
+        foreach(var option in new[]{solo,multiplayer,hostRoom,joinRoom})
+        {
+            option.Text=option.AccessibleName=LanRoomWindow.TextFor(option.Name);
+            option.Description=option.AccessibleDescription=LanRoomWindow.TextFor(option.Name+"_hint");
+            option.Invalidate();
+        }
+        ApplyPageText();
         languageInfo.Text=LanguageSupport.Coverage();
         if(!busy)SetStatus(statusText,statusIsError);
         RefreshAccountNames();
-        
         accounts.Invalidate();
+    }
+    private void ApplyPageText()
+    {
+        caption.Visible=!IsMenuPage;
+        switch(page)
+        {
+            case Page.Modes:
+                heading.Text=LanRoomWindow.TextFor("launcher_modes");
+                break;
+            case Page.Multiplayer:
+                heading.Text=multiplayer.Text;
+                break;
+            case Page.Accounts:
+                heading.Text=hosting?LanRoomWindow.TextFor("launcher_host_account"):LanguageSupport.Text("选择账号");
+                caption.Text=hosting?LanRoomWindow.TextFor("launcher_host_account_hint"):LanguageSupport.Text("选中已保存的账号，继续你的冒险");
+                break;
+            case Page.NewAccount:
+                heading.Text=create.Text;
+                caption.Text=LanguageSupport.Text("只需填写一个账号名称");
+                break;
+        }
+        login.Text=login.AccessibleName=LanRoomWindow.TextFor(hosting?hostRoom.Name:login.Name);
     }
     private void ConfigureButton(Button b,string key,bool primary,Action action)
     {
         b.Name=key;b.FlatStyle=FlatStyle.Flat;b.FlatAppearance.BorderSize=primary?0:1;
         b.FlatAppearance.BorderColor=Color.FromArgb(81,84,91);b.BackColor=primary?gold:Color.FromArgb(44,48,55);b.ForeColor=primary?Color.FromArgb(31,33,38):ink;
         b.Font=new Font(Font.FontFamily,10F,primary?FontStyle.Bold:FontStyle.Regular);b.Cursor=Cursors.Hand;b.Click+=(s,e)=>action();
+    }
+    private void ConfigureChoice(MenuChoice option,string key,Action action)
+    {
+        ConfigureButton(option,key,false,action);
+        option.Font=new Font(Font.FontFamily,13F,FontStyle.Bold);
+        option.TextAlign=ContentAlignment.TopLeft;
+        option.Padding=new Padding(16,19,12,0);
+        option.FlatAppearance.MouseOverBackColor=Color.FromArgb(54,58,66);
+        option.FlatAppearance.MouseDownBackColor=Color.FromArgb(67,61,48);
     }
     private static Dictionary<string,object> Data(params object[] values)
     {var d=new Dictionary<string,object>();for(int i=0;i<values.Length;i+=2)d.Add((string)values[i],values[i+1]);return d;}
@@ -260,71 +311,101 @@ internal sealed class LocalAccountWindow : Form
     }
     private void ApplyState(Dictionary<string,object> data)
     {
-        body.Visible=true;
         profiles=((IEnumerable)data["profiles"]).Cast<object>().Select(x=>(Dictionary<string,object>)x).ToList();
         accounts.Items.Clear();foreach(var p in profiles)accounts.Items.Add(ProfileName(p));
         int index=profiles.FindIndex(p=>Value(p,"id")==Value(data,"selectedId"));accounts.SelectedIndex=profiles.Count==0?-1:Math.Max(0,index);
-        if(profiles.Count==0)ShowCreate();else ShowList();
     }
-    private void ShowCreate()
+    private bool IsMenuPage { get { return page==Page.Modes||page==Page.Multiplayer; } }
+
+    private void ShowPage(Page next,string message="")
     {
-        creating=true;heading.Text=LanRoomWindow.TextFor(create.Name);caption.Text=LanguageSupport.Text("只需填写一个账号名称");
-        createPane.Visible=true;listPane.Visible=false;create.Visible=false;login.Visible=false;save.Visible=true;back.Visible=profiles.Count>0;
-        AcceptButton=save;if(loaded){name.Clear();name.Focus();}
+        page=next;
+        menuPane.Visible=IsMenuPage;
+        solo.Visible=multiplayer.Visible=page==Page.Modes;
+        hostRoom.Visible=joinRoom.Visible=page==Page.Multiplayer;
+        listPane.Visible=create.Visible=login.Visible=page==Page.Accounts;
+        createPane.Visible=save.Visible=page==Page.NewAccount;
+        back.Visible=page!=Page.Modes;
+        AcceptButton=page==Page.NewAccount?save:page==Page.Accounts?login:null;
+        if(page==Page.NewAccount)name.Clear();
+        ApplyPageText();
+        LayoutPane();
+        SetStatus(message);
+        if(!busy)FocusPage();
     }
-    private void ShowList()
+
+    private void FocusPage()
     {
-        creating=false;heading.Text=LanguageSupport.Text("选择账号");caption.Text=LanguageSupport.Text("选中已保存的账号，继续你的冒险");
-        createPane.Visible=false;listPane.Visible=true;create.Visible=true;login.Visible=true;save.Visible=false;back.Visible=false;
-        AcceptButton=login;accounts.Focus();
+        switch(page)
+        {
+            case Page.Modes: solo.Focus(); break;
+            case Page.Multiplayer: hostRoom.Focus(); break;
+            case Page.Accounts: accounts.Focus(); break;
+            case Page.NewAccount: name.Focus(); break;
+        }
+    }
+
+    private void GoBack()
+    {
+        if(page==Page.NewAccount&&profiles.Count>0)ShowPage(Page.Accounts,AccountListHint);
+        else if((page==Page.NewAccount||page==Page.Accounts)&&hosting)ShowPage(Page.Multiplayer);
+        else ShowPage(Page.Modes);
+    }
+
+    private void ShowAccounts()
+    {
+        if(profiles.Count==0)ShowPage(Page.NewAccount);
+        else ShowPage(Page.Accounts,AccountListHint);
+    }
+
+    private async void OpenAccounts(bool hostGame)
+    {
+        if(busy||closing)return;
+        hosting=hostGame;
+        if(loaded)
+        {
+            ShowAccounts();
+            return;
+        }
+        await Work("account-list",async()=>
+        {
+            SetStatus("launcher_loading_accounts");
+            var saved=await Task.Run(()=>request(Data("operation","list")));
+            if(!ParentAlive())throw new OperationCanceledException();
+            ApplyState(saved);
+            loaded=true;
+            ShowAccounts();
+        });
     }
     private async void CreateAccount()
     {
-        if(busy||!creating)return;string text=name.Text;
-        await Work("account-create",async()=>{SetStatus("正在创建账号并保存存档备份…");ApplyState(await Task.Run(()=>request(Data("operation","create","name",text))));name.Clear();SetStatus("account_saved");});
+        if(busy||page!=Page.NewAccount)return;
+        string text=name.Text;
+        await Work("account-create",async()=>
+        {
+            SetStatus("正在创建账号并保存存档备份…");
+            var saved=await Task.Run(()=>request(Data("operation","create","name",text)));
+            if(!ParentAlive())throw new OperationCanceledException();
+            ApplyState(saved);
+            name.Clear();
+            ShowPage(Page.Accounts,"account_saved");
+        });
     }
     private async void Login()
     {
-        if(busy||creating||accounts.SelectedIndex<0)return;string id=Value(profiles[accounts.SelectedIndex],"id");
-        await Work("account-login",async()=>
+        if(busy||page!=Page.Accounts||accounts.SelectedIndex<0)return;
+        string id=Value(profiles[accounts.SelectedIndex],"id");
+        await Work(hosting?"lan-host":"account-login",async()=>
         {
-            await launch(id,SetStatus,ParentAlive);
-            FinishLaunch();
-        });
-    }
-    private async void CreateRoom()
-    {
-        if(busy||closing)return;
-        string nameInput=name.Text;
-        if(creating&&String.IsNullOrWhiteSpace(nameInput))
-        {
-            SetStatus("lan_enter_account",true);
-            name.Focus();
-            return;
-        }
-        if(!creating&&accounts.SelectedIndex<0)return;
-        await Work("lan-host",async()=>
-        {
-            var network=LanRoomWindow.PreferredNetwork();
-            string id;
-            if(creating)
-            {
-                SetStatus("正在创建账号并保存存档备份…");
-                var saved=await Task.Run(()=>request(Data("operation","create","name",nameInput)));
-                if(!ParentAlive())throw new OperationCanceledException();
-                ApplyState(saved);
-                name.Clear();
-                id=Value(saved,"selectedId");
-            }
-            else id=Value(profiles[accounts.SelectedIndex],"id");
-            await Dnf60Control.StartAccountGame(id,SetStatus,ParentAlive,network);
+            if(hosting)await Dnf60Control.StartAccountGame(id,SetStatus,ParentAlive,LanRoomWindow.PreferredNetwork());
+            else await launch(id,SetStatus,ParentAlive);
             FinishLaunch();
         });
     }
     private void JoinRoom()
     {
-        if(busy||closing)return;
-        string suggested=accounts.SelectedIndex<0?name.Text:ProfileName(profiles[accounts.SelectedIndex]);
+        if(busy||closing||page!=Page.Multiplayer)return;
+        string suggested=accounts.SelectedIndex<0?"":ProfileName(profiles[accounts.SelectedIndex]);
         using(var window=new LanRoomWindow(suggested))
             if(window.ShowDialog(this)!=DialogResult.OK)return;
         FinishLaunch();
@@ -337,19 +418,36 @@ internal sealed class LocalAccountWindow : Form
     }
     private async Task Work(string action,Func<Task> task)
     {
-        if(busy)return;busy=true;body.Enabled=false;language.Enabled=false;create.Enabled=login.Enabled=save.Enabled=back.Enabled=lan.Enabled=hostRoom.Enabled=false;
+        if(busy)return;
+        Page previous=page;
+        busy=true;
+        body.Enabled=language.Enabled=create.Enabled=login.Enabled=save.Enabled=back.Enabled=false;
         try{Dnf60Control.AccountStage(action+"-begin","正在处理账号操作。");await task();Dnf60Control.AccountStage(action+"-done","账号操作已完成。");}
         catch(OperationCanceledException){closing=true;Close();}
         catch(Exception error){Dnf60Control.AccountStage(action+"-failed",error.Message,true);SetStatus(error.Message,true);}
         finally
         {
             busy=false;
-            if(!IsDisposed){body.Enabled=true;language.Enabled=true;create.Enabled=save.Enabled=back.Enabled=lan.Enabled=hostRoom.Enabled=true;login.Enabled=accounts.SelectedIndex>=0;if(closing)Close();}
+            if(!IsDisposed)
+            {
+                body.Enabled=language.Enabled=create.Enabled=save.Enabled=back.Enabled=true;
+                login.Enabled=accounts.SelectedIndex>=0;
+                if(closing)Close();
+                else if(page!=previous)FocusPage();
+            }
         }
     }
     private void SetStatus(string text){SetStatus(text,false);}
     private void SetStatus(string text,bool error)
-    {if(IsDisposed)return;if(InvokeRequired){BeginInvoke((Action)(()=>SetStatus(text,error)));return;}statusText=text;statusIsError=error;state.Text=LanguageSupport.Text(LanRoomWindow.TextFor(text));state.ForeColor=error?Color.FromArgb(255,156,146):muted;}
+    {
+        if(IsDisposed)return;
+        if(InvokeRequired){BeginInvoke((Action)(()=>SetStatus(text,error)));return;}
+        statusText=text;
+        statusIsError=error;
+        state.Visible=text.Length>0;
+        state.Text=text.Length>0?LanguageSupport.Text(LanRoomWindow.TextFor(text)):"";
+        state.ForeColor=error?Color.FromArgb(255,156,146):muted;
+    }
     private void DrawAccount(DrawItemEventArgs e)
     {
         if(e.Index<0||e.Index>=profiles.Count)return;

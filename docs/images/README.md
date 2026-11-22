@@ -1,3 +1,3 @@
 # Interface examples
 
-These native component renders use the demo names Explorer and Adventurer. They do not contain a real player save. English and Simplified Chinese examples illustrate first account creation, saved account selection and the item manager.
+These native component renders use the demo names Explorer and Adventurer. The English and Simplified Chinese examples show game modes, local accounts, multiplayer options and the item manager.
