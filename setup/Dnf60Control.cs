@@ -19,8 +19,8 @@ using Dnf60Lifecycle;
 [assembly: System.Reflection.AssemblyTitle("阿拉德·归途 · 会话服务")]
 [assembly: System.Reflection.AssemblyCompany("eirros")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: System.Reflection.AssemblyVersion("2.6.0.28")]
-[assembly: System.Reflection.AssemblyFileVersion("2.6.0.28")]
+[assembly: System.Reflection.AssemblyVersion("2.6.0.29")]
+[assembly: System.Reflection.AssemblyFileVersion("2.6.0.29")]
 
 internal static partial class Dnf60Control
 {
@@ -29,6 +29,9 @@ internal static partial class Dnf60Control
     internal static readonly string Server = Path.Combine(Game, "ACT12_Server");
     internal static readonly string Client = Path.Combine(Game, "ACT12");
     private static readonly string LogDir = Path.Combine(Root, "logs");
+    private static readonly string TrainerExecutable = Path.Combine(Root, InstallPrograms.Trainer);
+    private static readonly string LauncherExecutable = Path.Combine(Client, InstallPrograms.LegacyLauncher);
+    private static readonly string LauncherProcessName = Path.GetFileNameWithoutExtension(InstallPrograms.LegacyLauncher).ToLowerInvariant();
     private static int OriginalLauncherPid;
     private static bool StandaloneAccounts;
     internal const string KeepManagementEvent = "Local\\AradReturn_KeepManagement_Local";
@@ -39,12 +42,33 @@ internal static partial class Dnf60Control
     [STAThread]
     private static int Main(string[] args)
     {
+#if PORTABLE
+        string action = args.Length == 0
+            ? (String.Equals(Path.GetFileName(Application.ExecutablePath), "StopAll.exe", StringComparison.OrdinalIgnoreCase) ? "stop" : "start")
+            : args[0].TrimStart('-').ToLowerInvariant();
+#else
         if (args.Length == 0)
         {
-            Launch(Path.Combine(Root,"归途修改器.exe"),"--manage",Root,false);
+            Launch(TrainerExecutable,"--manage",Root,false);
             return 0;
         }
         string action = args[0].TrimStart('-').ToLowerInvariant();
+#endif
+        if(action=="game-volume")
+        {
+            int pid;
+            if(args.Length!=2||!Int32.TryParse(args[1],out pid)||pid<=0)return 1;
+            try
+            {
+                using(var game=Process.GetProcessById(pid))
+                    if(!game.HasExited&&ClientExitMonitor.IsInstalledClient(game.MainModule.FileName,Client))
+                        GameVolume.Monitor(game,Root,Log);
+            }
+            catch(ArgumentException){}
+            catch(InvalidOperationException){}
+            catch(System.ComponentModel.Win32Exception error){Log("AUDIO game process unavailable: "+error.NativeErrorCode);}
+            return 0;
+        }
         if(action=="lan-room")
         {
             try { ShowLanHost(); return 0; }
@@ -74,7 +98,14 @@ internal static partial class Dnf60Control
                 using(var startup=ControlLocks.Shared.TryStartup(Root))
                 {
                     if(startup==null)ForegroundStandaloneAccounts();
-                    else Run(action);
+                    else
+                    {
+#if PORTABLE
+                        EnsureLocalIdentity();
+                        RelayPortPreflight.Ensure(Root);
+#endif
+                        Run(action);
+                    }
                 }
             }
             else Run(action);
@@ -117,7 +148,7 @@ internal static partial class Dnf60Control
                 if(HasGameClient())
                 {
                     if(LanGuestRunning())ForegroundGame();
-                    else{StartServices();Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);}
+                    else{StartServices();Launch(TrainerExecutable,"--profile-selected",Root,false);}
                 }
                 else if(ForegroundStandaloneAccounts())
                 {
@@ -128,14 +159,14 @@ internal static partial class Dnf60Control
                 else if(LauncherMode.UseCompatibility(Root))
                     compatibleStarted=Launch(Application.ExecutablePath,"--compat-accounts",Root,false);
                 else if(Owned(Client).Length==0)
-                    originalStarted=Launch(Path.Combine(Client, "开始游戏.exe"), "", Client, false);
+                    originalStarted=Launch(LauncherExecutable, "", Client, false);
                 else
                     foreach(var p in Owned(Client))try{if(p.MainWindowHandle!=IntPtr.Zero)SetForegroundWindow(p.MainWindowHandle);}catch{}
             }
             else if (action == "stop") StopAll();
             else if (action == "game-stop") { SetKeepManagement(true); StopGameOnly(); }
             else if (action == "management-restart") RestartManagement();
-            else if (action == "gm") Launch(Path.Combine(Root, "归途修改器.exe"), "", Root, false);
+            else if (action == "gm") Launch(TrainerExecutable, "--online", Root, false);
             else if (action == "folder") Process.Start(new ProcessStartInfo(Game) { UseShellExecute = true });
             else if (action != "server-only") throw new ArgumentException("未知操作。");
             if(originalStarted==null&&compatibleStarted==null){Log("DONE " + action);Result(action, true, Status());}
@@ -206,7 +237,7 @@ internal static partial class Dnf60Control
         using(ControlLocks.Shared.AccountPane(Root,0))
         using(var ready=new EventWaitHandle(false,EventResetMode.ManualReset,LauncherStartupMonitor.ReadyEvent(Process.GetCurrentProcess().Id)))
         {
-            if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);return;}
+            if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(TrainerExecutable,"--profile-selected",Root,false);return;}
             AccountStage("native-account-ui-opening","正在打开本机账号选择窗口。");
             LocalAccountWindow.SetThreadDpiAwarenessContext(new IntPtr(-1));
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
@@ -246,14 +277,14 @@ internal static partial class Dnf60Control
         IntPtr parent=new IntPtr(handle);uint owner;
         GetWindowThreadProcessId(parent,out owner);
         using(var original=Process.GetProcessById(pid))
-            if(owner!=(uint)pid||!String.Equals(original.MainModule.FileName,Path.Combine(Client,"开始游戏.exe"),StringComparison.OrdinalIgnoreCase))
+            if(owner!=(uint)pid||!String.Equals(original.MainModule.FileName,LauncherExecutable,StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("账号选择区只能嵌入当前游戏的原版启动器。");
         OriginalLauncherPid=pid;
         AccountStage("launcher-ui-attaching","正在加载原版启动器的账号选择区。");
         using(ControlLocks.Shared.AccountPane(Root,pid))
         using(var ready=new EventWaitHandle(false,EventResetMode.ManualReset,LauncherStartupMonitor.ReadyEvent(pid)))
         {
-            if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);PostMessage(parent,0x0010,IntPtr.Zero,IntPtr.Zero);return;}
+            if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(TrainerExecutable,"--profile-selected",Root,false);PostMessage(parent,0x0010,IntPtr.Zero,IntPtr.Zero);return;}
             LocalAccountWindow.SetThreadDpiAwarenessContext(new IntPtr(-1));
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new LocalAccountWindow(parent,pid,ProfileRequest,StartProfileSession,()=>{AccountStage("account-pane-visible","账号选择窗口已显示。");ready.Set();}));
@@ -301,14 +332,14 @@ internal static partial class Dnf60Control
                     AccountStage("profile-game-start","正在启动游戏客户端。");
                     using(LaunchProfileGame(account,secret)){}
                     credentials.Clear();secret=null;
-                    Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);
+                    Launch(TrainerExecutable,"--profile-selected",Root,false);
                     if(roomNetwork==null)
                         Result("profile-login",true,"已登录所选本机账号");
                     else
                     {
                         try
                         {
-                            using(Launch(Path.Combine(Root,"DNF60控制台.exe"),"--lan-room",Root,false)){}
+                            using(Launch(Path.Combine(Root,InstallPrograms.Controller),"--lan-room",Root,false)){}
                             Result("lan-host",true,"房间已创建。");
                         }
                         catch(Exception error)
@@ -338,6 +369,8 @@ internal static partial class Dnf60Control
         try
         {
             Log("START "+file+" pid="+game.Id);
+            try { using(Launch(Path.Combine(Root,InstallPrograms.Controller),"--game-volume "+game.Id,Root,true)){} }
+            catch(System.ComponentModel.Win32Exception error){Log("AUDIO mixer monitor could not start: "+error.NativeErrorCode);}
             if(game.WaitForExit(1600)&&!HasGameClient())throw new InvalidOperationException("游戏启动后提前退出（退出码 0x"+unchecked((uint)game.ExitCode).ToString("X8")+"），请运行启动检查后将结果发回排查。");
             return game;
         }
@@ -357,20 +390,13 @@ internal static partial class Dnf60Control
     private static void EnsureLocalIdentity()
     {
         string python=Path.Combine(Path.GetDirectoryName(PythonRuntime()),"python.exe");
-        var info=new ProcessStartInfo(python,"-I -B \""+Path.Combine(Root,"trainer","first_run.py")+"\"")
-        {WorkingDirectory=Root,UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,RedirectStandardError=true};
-        using(var process=Process.Start(info))
-        {
-            var error=process.StandardError.ReadToEndAsync();
-            if(!process.WaitForExit(30000))throw new InvalidOperationException("Local login identity setup timed out.");
-            if(process.ExitCode!=0)throw new InvalidOperationException("Local login identity setup failed. "+error.Result);
-        }
+        InstallPrograms.EnsureLocalIdentity(Root, python);
     }
 
     private static void StartServices()
     {
         EnsureLocalIdentity();
-        foreach (string file in new[] { Path.Combine(Server, "a12_compat_launcher.exe"), Path.Combine(Server, "a12_server.exe"), Path.Combine(Client, "开始游戏.exe"), Path.Combine(Server, "dnf_a12.sqlite") })
+        foreach (string file in new[] { Path.Combine(Server, "a12_compat_launcher.exe"), Path.Combine(Server, "a12_server.exe"), LauncherExecutable, Path.Combine(Server, "dnf_a12.sqlite") })
             if (!File.Exists(file)) throw new FileNotFoundException("缺少游戏文件：" + file);
         SetKeepManagement(false);
         ConfigureClientBridge();
@@ -403,11 +429,10 @@ internal static partial class Dnf60Control
     {
         CloseLanRoom();
         // Finish a desktop edit before stopping the authoritative game service.
-        string trainerExe = Path.Combine(Root, "归途修改器.exe");
         foreach (var p in Process.GetProcesses())
         {
             bool matches = false;
-            try { matches = !p.HasExited && String.Equals(p.MainModule.FileName, trainerExe, StringComparison.OrdinalIgnoreCase); }
+            try { matches = !p.HasExited && String.Equals(p.MainModule.FileName, TrainerExecutable, StringComparison.OrdinalIgnoreCase); }
             catch { }
             if (matches) Graceful(p, 15000, "修改器正在完成操作，保存完成后会继续关闭。");
         }
@@ -415,7 +440,7 @@ internal static partial class Dnf60Control
         // then stop the authoritative server before ending a residual client.
         foreach (var p in Owned(Client))
         {
-            if(keepLauncher&&SafeName(p)=="开始游戏")continue;
+            if(keepLauncher&&SafeName(p)==LauncherProcessName)continue;
             try { p.CloseMainWindow(); } catch (InvalidOperationException) { }
         }
         foreach (var p in Owned(Server).Where(p => SafeName(p) == "a12_server"))
@@ -423,7 +448,7 @@ internal static partial class Dnf60Control
         StopTrainer();
         foreach (var p in Owned(Client))
         {
-            if(keepLauncher&&SafeName(p)=="开始游戏")continue;
+            if(keepLauncher&&SafeName(p)==LauncherProcessName)continue;
             if (p.WaitForExit(1500)) continue;
             if (IsInside(p, Client) && SafeName(p) == "dnf")
             {
@@ -449,7 +474,7 @@ internal static partial class Dnf60Control
             }
             else throw new InvalidOperationException("游戏目录里还有工具在运行，请先关闭该工具再重试。");
         }
-        if (Owned(Client).Any(p=>!keepLauncher||SafeName(p)!="开始游戏") || Owned(Server).Length != 0)
+        if (Owned(Client).Any(p=>!keepLauncher||SafeName(p)!=LauncherProcessName) || Owned(Server).Length != 0)
             throw new InvalidOperationException("还有游戏进程在运行，未生成关闭后的存档备份。");
         Backup();
         using(var quit=new EventWaitHandle(false,EventResetMode.ManualReset,"Local\\AradReturn_Background_Quit_Local"))quit.Set();
@@ -649,7 +674,7 @@ internal static partial class Dnf60Control
 
     private static void CheckPortableFiles()
     {
-        string[] required={"归途修改器.exe","trainer\\server.py","trainer\\local_profiles.py","trainer\\catalog.json","trainer\\growth.json","runtime\\python\\python314._pth","runtime\\python\\python314.zip","DNF60_ACT12\\ACT12\\开始游戏.exe","DNF60_ACT12\\ACT12\\a12_profiles.dll","DNF60_ACT12\\ACT12_Server\\a12_server.exe","DNF60_ACT12\\ACT12_Server\\a12_compat_launcher.exe","DNF60_ACT12\\ACT12_Server\\dnf_a12.sqlite","DNF60_ACT12\\ACT12_Server\\login_service\\a12_registration_server.exe"};
+        string[] required={InstallPrograms.Trainer,"trainer\\server.py","trainer\\local_profiles.py","trainer\\catalog.json","trainer\\growth.json","runtime\\python\\python314._pth","runtime\\python\\python314.zip","DNF60_ACT12\\ACT12\\"+InstallPrograms.LegacyLauncher,"DNF60_ACT12\\ACT12\\a12_profiles.dll","DNF60_ACT12\\ACT12_Server\\a12_server.exe","DNF60_ACT12\\ACT12_Server\\a12_compat_launcher.exe","DNF60_ACT12\\ACT12_Server\\dnf_a12.sqlite","DNF60_ACT12\\ACT12_Server\\login_service\\a12_registration_server.exe"};
         var missing=required.Where(p=>!File.Exists(Path.Combine(Root,p))).ToArray();
         string python=PythonRuntime();
         var report=new Dictionary<string,object>{{"root",Root},{"python",python},{"bundledPython",String.Equals(python,Path.Combine(Root,"runtime","python","pythonw.exe"),StringComparison.OrdinalIgnoreCase)},{"missing",missing},{"is64BitWindows",Environment.Is64BitOperatingSystem},{"version",typeof(Dnf60Control).Assembly.GetName().Version.ToString()}};
@@ -686,7 +711,7 @@ internal static partial class Dnf60Control
             if (process.HasExited) return;
             bool requested;
             if(SafeName(process)=="a12_server"&&IsInside(process,Server))requested=ServerBackgroundContext.CloseInstalledServer(process.Id);
-            else if(String.Equals(process.MainModule.FileName,Path.Combine(Root,"归途修改器.exe"),StringComparison.OrdinalIgnoreCase))requested=ServerBackgroundContext.CloseInstalledTrainer(process.Id);
+            else if(String.Equals(process.MainModule.FileName,TrainerExecutable,StringComparison.OrdinalIgnoreCase))requested=ServerBackgroundContext.CloseInstalledTrainer(process.Id);
             else requested=process.CloseMainWindow();
             if (!requested || !process.WaitForExit(waitMs))
                 if (!process.HasExited) throw new InvalidOperationException(message);
@@ -791,7 +816,6 @@ internal sealed class ServerBackgroundContext : ApplicationContext
     private delegate void WinEvent(IntPtr hook,uint evt,IntPtr h,int obj,int child,uint thread,uint time);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumWindow fn,IntPtr data);
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] private static extern int GetClassName(IntPtr h,StringBuilder s,int count);
-    [DllImport("user32.dll",CharSet=CharSet.Unicode)] private static extern int GetWindowText(IntPtr h,StringBuilder s,int count);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr h,out uint id);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr h,int state);
     [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr h);
@@ -854,10 +878,9 @@ internal sealed class ServerBackgroundContext : ApplicationContext
         EnumWindows((h,data)=>
         {
             uint owner;GetWindowThreadProcessId(h,out owner);if(owner!=pid)return true;
-            var title=new StringBuilder(256);GetWindowText(h,title,256);
-            if(title.ToString()=="阿拉德·归途 · 修改器")
-            { sent=PostMessage(h,0x8002,IntPtr.Zero,IntPtr.Zero)||sent;PostMessage(h,0x10,IntPtr.Zero,IntPtr.Zero); }
-            else if(IsWindowVisible(h))
+            // The main trainer form handles this request in every display language.
+            sent=PostMessage(h,0x8002,IntPtr.Zero,IntPtr.Zero)||sent;
+            if(IsWindowVisible(h))
             {
                 // Cancel an unanswered Yes/No prompt; never accept an edit just
                 // because the game has ended. Other dialogs accept WM_CLOSE.

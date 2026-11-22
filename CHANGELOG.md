@@ -1,5 +1,15 @@
 # Changes
 
+## v2.6.0-preview.30 — 2026-11-22
+
+- Restored Seria's automatic introductory quest after finishing the tutorial or using Return to town. Repaired four blocked quest steps in the Birken, Cartel and Riku routes.
+- Checked prerequisites, objectives, drops and completion records across 2,179 indexed quests. The reference quest parser still lacks seven legacy pet evolution rewards.
+
+## v2.6.0-preview.29 — 2026-11-22
+
+- Game audio uses the current Windows output volume and mute. On first use of a device, an untouched game mixer slider starts at 35%. User mixer settings take precedence on subsequent starts.
+- The Windows ZIP extracts directly into the destination folder. The four English-named programs share that folder with the game data and runtime.
+
 ## v2.6.0-preview.28 — 2026-11-22
 
 - The full Windows ZIP includes the startup repair and opens the compatibility account window by default. Each installation manages its own account window.

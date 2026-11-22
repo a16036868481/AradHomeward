@@ -412,7 +412,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed():return
         try:
             parsed=urlparse(self.path);q={k:v[0] for k,v in parse_qs(parsed.query).items()};p=parsed.path
-            if p in ('/','/app.js','/style.css'):return self.send(410,'请打开游戏目录中的“归途修改器.exe”。','text/plain; charset=utf-8')
+            if p in ('/','/app.js','/style.css'):
+                editor = 'AradTrainer.exe' if (ROOT / 'AradTrainer.exe').is_file() else '归途修改器.exe'
+                return self.send(410,f'请打开游戏目录中的 {editor}。','text/plain; charset=utf-8')
             if p=='/api/bootstrap':return self.send(200,{'token':TOKEN,'apiVersion':4,'helperVersion':HELPER_VERSION,'management':True,'selectedProfile':PROFILES.selected(),'profileFields':['level',*ATTRIBUTE_FIELDS,'fatigue_remaining'],'careers':[{k:v for k,v in c.items() if k!='skills'} for c in CAREERS],'items':len(CATALOG),'bridge':BRIDGE.status(),'root':str(ROOT)})
             if p=='/api/admin':return self.send(200,admin_read(q['path'],q.get('lang','zh-Hans')))
             if p=='/api/admin/runtime':return self.send(200,ADMIN.runtime())

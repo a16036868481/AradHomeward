@@ -140,7 +140,7 @@ namespace Dnf60Desktop
             {
                 try
                 {
-                    using(var process=Process.Start(new ProcessStartInfo(Path.Combine(Program.Root,"DNF60控制台.exe"),"--lan-room"){WorkingDirectory=Program.Root,UseShellExecute=false,CreateNoWindow=true})){}
+                    using(var process=Process.Start(new ProcessStartInfo(Program.Controller,"--lan-room"){WorkingDirectory=Program.Root,UseShellExecute=false,CreateNoWindow=true})){}
                 }
                 catch(Exception error){SetStatus(error.Message,true);}
             },false);

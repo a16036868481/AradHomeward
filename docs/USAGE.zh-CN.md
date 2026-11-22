@@ -4,11 +4,11 @@
 
 ## 1. 下载并完整解压
 
-在 **Assets** 中下载 `AradHomeward-v2.6.0-preview.28-win-x64.zip`。`SHA256SUMS.txt` 是压缩包的校验文件。[Windows 下载页](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.28)
+将 `AradHomeward-v2.6.0-preview.30-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
 
-完整解压到有写入权限的本地目录，例如 `D:\Games\AradHomeward`。四个 EXE 入口必须和 `app` 文件夹放在一起，不能只移动一个程序，也不要在压缩包里直接打开。本包需要 Windows 10/11 64 位。
+解压后的程序和数据文件夹请一起保留。本包需要 Windows 10/11 64 位。
 
-需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.28-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
+需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.30-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
 
 ## 2. 第一次创建账号
 
@@ -16,7 +16,7 @@
 
 ![首次新建账号页面](images/launcher-new-zh-Hans.png)
 
-名称只用于区分本地存档，内部登录凭据由程序自动创建。首次启动还会在这台电脑生成独立的本地登录证书。以后游玩请保留完整的 `app` 文件夹。
+名称用于区分本地存档，内部登录凭据由程序自动创建。首次启动还会在这台电脑生成独立的本地登录证书。请保留完整的解压目录以便继续游玩。
 
 ## 3. 选择语言和登录
 
@@ -40,6 +40,8 @@
 
 进入游戏后新建或选择角色。修改器会随游戏打开。在城镇或赛丽亚房间时，可从修改器右上角选择角色并在线修改。
 
+Windows 主音量和静音会作用于游戏。首次使用某个输出设备时，若游戏的 Windows 混音器音量是默认满格，会设为 35%。游玩时可在 Windows 音量混音器调整游戏音量，下次启动会沿用你的设置。
+
 ![物品图标与多选页面示例](images/trainer-items-zh-Hans.png)
 
 | 页面 | 功能 |
@@ -61,7 +63,7 @@
 
 在**游戏内点“结束游戏”**，修改器与相关后台服务会自动一起退出，并创建存档备份。正常情况下不需要再点关闭入口；`StopAll.exe` 只供异常时手动收尾。等退出完成后再复制或替换文件。
 
-主存档位于 `app/DNF60_ACT12/ACT12_Server/dnf_a12.sqlite`，自动备份在 `app/backups/`。账号、本地证书和设置属于当前解压目录，两台电脑的存档各自独立，不会自动同步。
+主存档位于 `DNF60_ACT12/ACT12_Server/dnf_a12.sqlite`，自动备份在 `backups/`。账号、本地证书和设置属于当前解压目录，两台电脑各自保存进度。
 
 迁移进度时，先在两台电脑正常退出，再复制**整个已解压文件夹**，让存档、内部凭据、证书和设置一起保留。更新或恢复前另存当前目录备份，不要用新公开包的空数据库覆盖已有角色存档。
 
@@ -70,8 +72,8 @@
 | 现象 | 处理方法 |
 | --- | --- |
 | 缺文件、没有窗口或闪退 | 检查压缩包校验值，重新完整解压到较短且可写的目录，保持所有文件夹在一起。 |
-| 账号窗口未出现 | 从解压目录最外层打开 `AradHomeward.exe`，新版会默认使用兼容账号窗口。若仍未打开，运行 `CheckStartup.exe`，收集 `app/启动检查结果.json` 和已生成的 `app/logs/startup-state.json`。 |
-| 游戏服务启动失败 | 运行 **CheckStartup.exe**，查看检查结果、`app/logs/` 及 `app/DNF60_ACT12/ACT12_Server/server_log.txt`。中继检查会在 5555 不可用时选择空闲本地端口。 |
+| 账号窗口未出现 | 从解压目录打开 `AradHomeward.exe`。若仍未打开，运行 `CheckStartup.exe`，收集 `logs/startup-check.json` 和已生成的 `logs/startup-state.json`。 |
+| 游戏服务启动失败 | 运行 **CheckStartup.exe**，查看检查结果和 `DNF60_ACT12/ACT12_Server/server_log.txt`。中继检查会在 5555 不可用时选择空闲本地端口。 |
 | 提示登录证书不完整或不匹配 | 从备份恢复整个安装目录。不要混用其他安装目录的证书，也不要关闭证书验证。 |
 | 仍显示部分原始文字 | 退出游戏、重新选择语言并启动。反馈时附上语言、具体页面和截图；预览版仍有少量原始资源。 |
 | 修改器未选择角色 | 先在游戏里进入角色，等待服务就绪，再点“切换角色”。 |

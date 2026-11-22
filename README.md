@@ -4,9 +4,9 @@
 
 A portable Windows ACT12 / level-60 local game package with a name-only account launcher, a native desktop trainer, and five display languages. Custom launcher, trainer and localization work by **eirros**.
 
-**[Download the Windows package](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.28)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
+**[Windows releases](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-Download `AradHomeward-v2.6.0-preview.28-win-x64.zip` from the release's **Assets**. This ZIP includes the startup repair, game, server, native editor and LAN room support.
+`AradHomeward-v2.6.0-preview.30-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
 
 Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 
@@ -36,7 +36,7 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 
 ## Current release status
 
-**v2.6.0-preview.28** opens the compatibility account window by default and manages it separately for each installation. Startup checks show the game entry after a successful check. The package includes LAN rooms, Seria room editing, item icon and localization fixes. Some original game text and voices remain. Language changes apply to the **next game launch**.
+**v2.6.0-preview.29** places the English-named programs directly in the extraction folder. The game uses the current Windows output volume and mute. A new Windows mixer session at full volume starts at 35% for the game. The compatibility account window remains the default. Language changes apply to the **next game launch**. Some original game text and voices remain.
 
 Isolated Windows tests covered opening a room, copying the invitation, joining the character selector, reconnecting to the same guest account and closing the room. Party play on two physical PCs remains to be verified. [Release changes](CHANGELOG.md) · [Troubleshooting](docs/USAGE.en.md#troubleshooting)
 
@@ -50,7 +50,7 @@ The pictures are native interface renders with **Explorer / Adventurer demo data
 | `AradTrainer.exe` | Open the trainer separately |
 | `StopAll.exe` | Emergency/manual shutdown when needed |
 | `CheckStartup.exe` | Collect local startup diagnostics |
-| `app/` | Game, resources, isolated runtime, saves and background services |
+| `DNF60_ACT12/` | Game, resources, local server and saves |
 | `docs/` | Offline English and Chinese illustrated guides |
 
 This repository contains the custom C#, Python and C++ source. Download the release for the complete playable data. See [build notes](docs/BUILD.md) and [release changes](CHANGELOG.md).

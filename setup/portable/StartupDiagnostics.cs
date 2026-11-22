@@ -19,7 +19,7 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("阿拉德·归途 · 启动检查")]
 [assembly: AssemblyCompany("eirros")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: AssemblyVersion("2.5.3.0")]
+[assembly: AssemblyVersion("2.5.4.0")]
 
 internal static class StartupDiagnostics
 {
@@ -29,10 +29,13 @@ internal static class StartupDiagnostics
     private static string Root;
     private static bool Failed;
     private static readonly string[] Critical={
-        "阿拉德·归途.exe", "DNF60控制台.exe", "归途修改器.exe",
+        InstallPrograms.Controller, InstallPrograms.Trainer,
+#if PORTABLE
+        "StopAll.exe",
+#endif
         "runtime\\python\\python.exe", "runtime\\python\\pythonw.exe", "runtime\\python\\python314.dll", "runtime\\python\\python314.zip", "runtime\\python\\python314._pth",
         "trainer\\server.py", "trainer\\local_profiles.py", "trainer\\catalog.json", "trainer\\growth.json",
-        "DNF60_ACT12\\ACT12\\DNF.exe", "DNF60_ACT12\\ACT12\\开始游戏.exe", "DNF60_ACT12\\ACT12\\netapi32.dll", "DNF60_ACT12\\ACT12\\a12_profiles.dll", "DNF60_ACT12\\ACT12\\a12_account_fix.dll",
+        "DNF60_ACT12\\ACT12\\DNF.exe", "DNF60_ACT12\\ACT12\\" + InstallPrograms.LegacyLauncher, "DNF60_ACT12\\ACT12\\netapi32.dll", "DNF60_ACT12\\ACT12\\a12_profiles.dll", "DNF60_ACT12\\ACT12\\a12_account_fix.dll",
         "DNF60_ACT12\\ACT12\\version.dll", "DNF60_ACT12\\ACT12\\Tenio\\TenBase.dll", "DNF60_ACT12\\ACT12\\Tenio\\TenFact.dll",
         "DNF60_ACT12\\ACT12\\Script.pvf", "DNF60_ACT12\\ACT12\\ui\\layout\\QQLogin.xml",
         "DNF60_ACT12\\ACT12_Server\\a12_server.exe", "DNF60_ACT12\\ACT12_Server\\a12_compat_launcher.exe", "DNF60_ACT12\\ACT12_Server\\dnf_a12.sqlite",
@@ -47,7 +50,7 @@ internal static class StartupDiagnostics
         try
         {
             if(!Directory.Exists(Path.Combine(Root,"DNF60_ACT12")))
-                throw new InvalidOperationException("请把“启动检查.exe”放到游戏最外层，与“DNF60控制台.exe”放在一起，再运行。完整游戏文件夹不能留在 ZIP 内。");
+                throw new InvalidOperationException("请完整解压游戏包，在解压目录里运行 " + InstallPrograms.Diagnostics + "。");
             Check("windowsRequirements",()=>{
                 using(var key=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
                 {
@@ -57,6 +60,9 @@ internal static class StartupDiagnostics
                 }
             });
             Check("requiredFiles",()=>{
+#if PORTABLE
+                InstallPrograms.EnsureLocalIdentity(Root, Path.Combine(Root,"runtime","python","python.exe"));
+#endif
                 var missing=Critical.Where(name=>!File.Exists(Path.Combine(Root,name))).ToArray();
                 if(missing.Length>0)throw new FileNotFoundException("缺少文件："+String.Join("、",missing));
                 return new {count=Critical.Length};
@@ -91,17 +97,18 @@ internal static class StartupDiagnostics
             using(var os=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
             using(var framework=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"))
                 system=new {windows=Convert.ToString(os==null?null:os.GetValue("ProductName")),build=Convert.ToString(os==null?null:os.GetValue("CurrentBuildNumber")),displayVersion=Convert.ToString(os==null?null:os.GetValue("DisplayVersion")),is64BitWindows=Environment.Is64BitOperatingSystem,process64Bit=Environment.Is64BitProcess,ansiCodePage=GetACP(),frameworkRelease=Convert.ToString(framework==null?null:framework.GetValue("Release")),pathLength=Root.Length,rootContainsNonAscii=Root.Any(c=>c>127),root=Root};
-            var result=new {time=DateTime.Now.ToString("o"),diagnosticsVersion="2.5.3",result=Failed?"failed":"component-checks-passed",system=system,checks=Checks,portsAlreadyListening=ports,recentState=state,recentApplicationErrors=ApplicationErrors(),gameStarted=false,servicesStarted=false,note="Only component checks. Game startup on this computer has not been verified."};
+            var result=new {time=DateTime.Now.ToString("o"),diagnosticsVersion="2.5.4",result=Failed?"failed":"component-checks-passed",system=system,checks=Checks,portsAlreadyListening=ports,recentState=state,recentApplicationErrors=ApplicationErrors(),gameStarted=false,servicesStarted=false,note="Only component checks. Game startup on this computer has not been verified."};
             // The report intentionally excludes passwords, account secrets, tokens and save contents.
             string output=Json.Serialize(result);
-            try {report=Path.Combine(Root,"启动检查结果.json");File.WriteAllText(report,output,new UTF8Encoding(true));}
-            catch {report=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"归途启动检查结果-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+".json");File.WriteAllText(report,output,new UTF8Encoding(true));}
+            try {string logs=Directory.CreateDirectory(Path.Combine(Root,"logs")).FullName;report=Path.Combine(logs,"startup-check.json");File.WriteAllText(report,output,new UTF8Encoding(true));}
+            catch {report=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"AradHomeward-StartupCheck-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+".json");File.WriteAllText(report,output,new UTF8Encoding(true));}
             if(!args.Contains("--quiet"))
             {
-                string publicEntry=Path.Combine(Root,"..","AradHomeward.exe");
-                string startHint=File.Exists(publicEntry)
-                    ? "双击解压目录最外层的 AradHomeward.exe 开始游戏。\r\nTo play, open AradHomeward.exe in the main folder."
-                    : "双击同目录的 阿拉德·归途.exe 开始游戏。";
+#if PORTABLE
+                string startHint="双击同目录的 AradHomeward.exe 开始游戏。\r\nTo play, open AradHomeward.exe in this folder.";
+#else
+                string startHint="双击同目录的 阿拉德·归途.exe 开始游戏。";
+#endif
                 string message=Failed
                     ? "检测到启动组件异常。请提供检查报告以便排查。\r\nA startup component failed. See the report below.\r\n\r\n"+report
                     : "启动组件检查通过。\r\nStartup component checks passed.\r\n\r\n"+startHint;
@@ -111,7 +118,7 @@ internal static class StartupDiagnostics
         }
         catch(Exception error)
         {
-            try {report=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"归途启动检查错误.txt");File.WriteAllText(report,error.ToString(),new UTF8Encoding(true));}catch{}
+            try {report=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"AradHomeward-StartupCheckError.txt");File.WriteAllText(report,error.ToString(),new UTF8Encoding(true));}catch{}
             if(!args.Contains("--quiet"))MessageBox.Show(error.Message+(report==null?"":"\r\n\r\n错误记录："+report),"阿拉德·归途 · 启动检查",MessageBoxButtons.OK,MessageBoxIcon.Warning);
             return 2;
         }
@@ -165,7 +172,7 @@ internal static class StartupDiagnostics
                     if(item.TimeGenerated<DateTime.Now.AddHours(-6))break;
                     if((item.InstanceId&0xffff)!=1000)continue;
                     string message=item.Message;
-                    if(!new[]{"DNF.exe","开始游戏.exe","DNF60控制台.exe","a12_server.exe","a12_registration_server.exe","python.exe","pythonw.exe"}.Any(name=>message.IndexOf(name,StringComparison.OrdinalIgnoreCase)>=0))continue;
+                    if(!new[]{"DNF.exe",InstallPrograms.LegacyLauncher,InstallPrograms.Controller,"a12_server.exe","a12_registration_server.exe","python.exe","pythonw.exe"}.Any(name=>message.IndexOf(name,StringComparison.OrdinalIgnoreCase)>=0))continue;
                     // Application Error 1000 contains image/module paths and exception codes,
                     // unlike arbitrary application logs that may contain request data.
                     errors.Add(new {time=item.TimeGenerated.ToString("o"),source=item.Source,eventId=1000,message=message});

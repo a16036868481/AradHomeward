@@ -24,20 +24,40 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("阿拉德·归途 · 修改器")]
 [assembly: AssemblyCompany("eirros")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: AssemblyVersion("2.6.0.27")]
-[assembly: AssemblyFileVersion("2.6.0.27")]
+[assembly: AssemblyVersion("2.6.0.29")]
+[assembly: AssemblyFileVersion("2.6.0.29")]
 
 namespace Dnf60Desktop
 {
     internal static class Program
     {
         internal static readonly string Root = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+        internal static readonly string Controller = Path.Combine(Root, InstallPrograms.Controller);
         [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr h);
         [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr h, int n);
         [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr h,int message,IntPtr w,IntPtr l);
         [STAThread]
         private static int Main(string[] args)
         {
+#if PORTABLE
+            if (args.Length == 0)
+            {
+                try
+                {
+                    using (Process.Start(new ProcessStartInfo(Controller, "--gm")
+                    {
+                        WorkingDirectory = Root, UseShellExecute = false, CreateNoWindow = true,
+                        WindowStyle = ProcessWindowStyle.Hidden
+                    })) { }
+                    return 0;
+                }
+                catch (Exception error)
+                {
+                    MessageBox.Show(error.Message, "Arad Trainer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return 1;
+                }
+            }
+#endif
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             TrainerLanguage.Initialize();
@@ -398,7 +418,7 @@ namespace Dnf60Desktop
                 if(start)
                 {
                     SetStatus(TrainerLanguage.T("正在启动本机游戏服务，请稍候…"),false);
-                    await Task.Run(()=>{var p=Process.Start(new ProcessStartInfo(Path.Combine(Program.Root,"DNF60控制台.exe"),"--server-only"){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,WorkingDirectory=Program.Root});if(p==null||!p.WaitForExit(120000)||p.ExitCode!=0)throw new InvalidOperationException(TrainerLanguage.T("服务启动未完成，请在“服务设置 → 运行与日志”查看状态。"));});
+                    await Task.Run(()=>{var p=Process.Start(new ProcessStartInfo(Program.Controller,"--server-only"){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,WorkingDirectory=Program.Root});if(p==null||!p.WaitForExit(120000)||p.ExitCode!=0)throw new InvalidOperationException(TrainerLanguage.T("服务启动未完成，请在“服务设置 → 运行与日志”查看状态。"));});
                     boot=await Task.Run(()=>api.Bootstrap());
                 }
                 careers.AddRange(J.Rows(boot["careers"]));

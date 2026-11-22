@@ -1,5 +1,5 @@
 // Copyright (c) 2026 eirros. All rights reserved.
-// Local client display localization. Save data and wire encodings stay canonical.
+// Client localization and compatibility hooks for the ACT12 build.
 #include <windows.h>
 #include <shlwapi.h>
 #include <strsafe.h>
@@ -176,6 +176,43 @@ static bool InstallFontImport(BYTE* image)
     }
     return false;
 }
+using TutorialModuleCheck = unsigned char (__thiscall*)(void*, int);
+static TutorialModuleCheck originalTutorialModuleCheck;
+
+static unsigned char __fastcall CanStartSeriaIntroduction(void* tutorial, void*, int module)
+{
+    constexpr int tutorialDungeonStarted = 30;
+    constexpr int tutorialDungeonFinished = 31;
+    // Returning via the dungeon menu persists module 31 on the server. The
+    // client's town transition can run before that updated flag is in memory.
+    return originalTutorialModuleCheck(tutorial, module) ||
+        (module == tutorialDungeonFinished && originalTutorialModuleCheck(tutorial, tutorialDungeonStarted));
+}
+
+static bool InstallSeriaIntroductionHook(BYTE* image)
+{
+    BYTE* gate = image + 0x70F23F;
+    BYTE* moduleCheck = image + 0x70B800;
+    const BYTE gateSignature[] = {0x6A,0x1F,0xE8,0xBA,0xC5,0xFF,0xFF,0x3C,0x01,0x0F,0x85,0xAA,0,0,0};
+    const BYTE checkSignature[] = {0x55,0x8B,0xEC,0x53,0x56,0x8B,0xB1,0x9C,0,0,0};
+    if (memcmp(gate, gateSignature, sizeof(gateSignature)) ||
+        memcmp(moduleCheck, checkSignature, sizeof(checkSignature))) return false;
+
+    // Replace only the call in the first dungeon-to-town introduction gate.
+    // Its original scene, quest completion and quest capacity checks still run.
+    BYTE* displacement = gate + 3;
+    DWORD protection;
+    if (!VirtualProtect(displacement, sizeof(DWORD), PAGE_EXECUTE_READWRITE, &protection)) return false;
+    originalTutorialModuleCheck = reinterpret_cast<TutorialModuleCheck>(moduleCheck);
+    const DWORD target = reinterpret_cast<DWORD>(&CanStartSeriaIntroduction);
+    const DWORD offset = target - reinterpret_cast<DWORD>(displacement + sizeof(DWORD));
+    memcpy(displacement, &offset, sizeof(offset));
+    DWORD unused;
+    VirtualProtect(displacement, sizeof(DWORD), protection, &unused);
+    FlushInstructionCache(GetCurrentProcess(), gate + 2, 1 + sizeof(DWORD));
+    return true;
+}
+
 static DWORD WINAPI Initialize(void*)
 {
     wchar_t path[32768];GetModuleFileNameW(nullptr,path,32768);
@@ -193,6 +230,7 @@ static DWORD WINAPI Initialize(void*)
     const BYTE newsSignature[] = {0x55,0x8B,0xEC,0x8B,0x45,0x0C,0x8B,0x4D,0x08,0x50,0x51};
     if (nt->OptionalHeader.SizeOfImage != 0x2C1F000 || memcmp(newsTarget, newsSignature, sizeof(newsSignature)))
     { Log("unsupported-client"); return 0; }
+    if (!InstallSeriaIntroductionHook(image)) Log("seria-introduction-hook-unavailable");
     localNews = OfflineNewsUrl(installation, locale);
     // Use the local welcome page with the original Chinese text and font path.
     if (locale == L"zh-Hans")

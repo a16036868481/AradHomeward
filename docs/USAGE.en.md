@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Download `AradHomeward-v2.6.0-preview.28-win-x64.zip` from **Assets**. For download verification, also get `SHA256SUMS.txt`. Extract the whole ZIP to a writable local folder such as `D:\Games\AradHomeward`. [Windows release](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.28)
+Extract the whole `AradHomeward-v2.6.0-preview.30-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
 
-Keep the `app` folder next to all four EXE entries. Do not run from inside the ZIP, move just one EXE, or install into a protected system folder. The download is for Windows 10/11 x64; it is not an Android, macOS or Linux build.
+Keep the extracted files and folders together. The package requires Windows 10 or 11 x64.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.28-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.30-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Create a local account
 
@@ -16,7 +16,7 @@ Double-click **AradHomeward.exe**. The first screen contains **New account**, be
 
 ![New account screen](images/launcher-new-en-US.png)
 
-The account name labels a local save, not an online identity. The local server creates the internal credentials automatically. Do not delete the `app` folder after playing.
+The local server creates the internal credentials automatically. Keep the extraction folder to preserve your saves.
 
 ## 3. Choose language and sign in
 
@@ -40,6 +40,8 @@ The room panel shows the address, connected guests and controls to copy the invi
 
 Create or choose a character in the game. The native trainer opens with the game. You can make supported online edits in town or in Seria's room. Choose your character at the top right of the trainer.
 
+Windows output volume and mute apply to the game. On first use of an output, the game initializes an untouched mixer slider to 35%. You can adjust the game in the Windows Volume Mixer during play, and your choice is used on later starts.
+
 ![Items page with example icons](images/trainer-items-en-US.png)
 
 | Page | Use |
@@ -61,7 +63,7 @@ Character sections save separately. A class change reconfigures skills. Full att
 
 Choose **End Game inside the game**. The session manager closes the related trainer and background services and creates a save backup. Normally there is no need to run `StopAll.exe`; it is a fallback for an interrupted session. Allow shutdown to finish before copying or replacing files.
 
-The primary save is `app/DNF60_ACT12/ACT12_Server/dnf_a12.sqlite`. Automatic backups are stored under `app/backups/`. Accounts and the local login certificate belong to this extracted installation. Two PCs keep independent saves; there is no cloud sync.
+The primary save is `DNF60_ACT12/ACT12_Server/dnf_a12.sqlite`. Automatic backups are stored under `backups/`. Accounts and the local login certificate belong to this extracted installation. Each PC keeps its own saves.
 
 To move your progress, exit normally on both PCs and copy the **entire extracted folder**. This keeps the save, account secrets, certificate and settings together. Before updating or restoring, keep a separate copy of your current installation. Do not replace an existing save with the empty save from a new public download.
 
@@ -70,8 +72,8 @@ To move your progress, exit normally on both PCs and copy the **entire extracted
 | Symptom | Action |
 | --- | --- |
 | Missing files, no window, or instant exit | Extract the entire ZIP again to a short writable path and check the archive hash. Keep all folders together. |
-| The account window does not appear | Start `AradHomeward.exe` from the top-level folder. This package uses the compatibility account window by default. If it still fails, run `CheckStartup.exe` and collect `app/启动检查结果.json` and `app/logs/startup-state.json` if present. |
-| Game service fails to start | Run **CheckStartup.exe** and inspect its report plus `app/logs/` and `app/DNF60_ACT12/ACT12_Server/server_log.txt`. The relay preflight can select a free local port when 5555 is unavailable. |
+| The account window does not appear | Run `AradHomeward.exe` from the extraction folder. For troubleshooting use `CheckStartup.exe` and collect `logs/startup-check.json` and `logs/startup-state.json` if present. |
+| Game service fails to start | Run **CheckStartup.exe** and inspect its report and `DNF60_ACT12/ACT12_Server/server_log.txt`. The relay preflight can select a free local port when 5555 is unavailable. |
 | Login identity is incomplete or mismatched | Restore the complete installation from its backup. Do not copy certificates from another unrelated installation or disable certificate validation. |
 | Some text is still in the original language | Exit, choose the language again and relaunch. Report the language, screen and an image; some original resources remain in this preview. |
 | Trainer has no selected character | Enter the character in the game, wait for services to be ready, then use **Switch character**. |

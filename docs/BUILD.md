@@ -8,15 +8,17 @@ The repository contains custom launcher/session C#, native trainer C#, local man
 
 1. Download and fully extract a release. Work on a **separate copy**, with game and trainer closed.
 2. Download this source and open PowerShell in its root.
-3. Build against the extracted `app` folder:
+3. Build against the release's extraction folder.
 
 ```powershell
-.\build.ps1 -InstallRoot 'D:\Games\AradHomeward\app'
+.\build.ps1 -InstallRoot 'D:\Games\AradHomeward'
 ```
 
 The script uses the Windows .NET Framework 4.x C# compiler. It builds the portable controller, native trainer, English-named entries and diagnostics, copies current Python modules, and updates the language manifest's runtime hashes. It does not build the original proprietary game/server. Keep the original notices.
 
 脚本使用 Windows .NET Framework 4.x 的 C# 编译器，生成便携控制器、原生修改器、英文入口及诊断程序，复制 Python 模块并刷新语言清单中的组件哈希。它不编译原游戏/服务器。请保留原有声明。
+
+The release includes `a12_profiles.dll` for the original account launcher. To rebuild this helper, use an x86 Visual Studio developer prompt and compile `setup/portable/LegacyLauncherProfiles.cpp` with `/LD /O2 /MT /utf-8`, linking `shlwapi.lib` and `user32.lib`. Place the DLL at `DNF60_ACT12/ACT12/a12_profiles.dll` before refreshing the release hashes.
 
 ## Game language runtime
 

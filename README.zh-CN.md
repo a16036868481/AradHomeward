@@ -4,9 +4,9 @@
 
 Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选择器、原生桌面修改器和五种显示语言。启动器、修改器及本项目的本地化改动由 **eirros** 制作。
 
-**[下载 Windows 压缩包](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.28)** · **[中文图文说明](docs/USAGE.zh-CN.md)** · **[English guide](docs/USAGE.en.md)**
+**[Windows 发布页](https://github.com/a16036868481/AradHomeward/releases)** · **[中文图文说明](docs/USAGE.zh-CN.md)** · **[English guide](docs/USAGE.en.md)**
 
-请在 Release 的 **Assets** 中下载 `AradHomeward-v2.6.0-preview.28-win-x64.zip`。压缩包已集成启动修复，包含完整游戏、本机服务、桌面修改器和局域网功能。
+`AradHomeward-v2.6.0-preview.30-win-x64.zip` 是 Windows 完整包，包含游戏、本机服务、桌面修改器和局域网房间。
 
 解压到新文件夹即可试用，原安装目录里的存档可继续保留。双击解压目录最外层的 `AradHomeward.exe` 启动。
 
@@ -36,7 +36,7 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 
 ## 当前版本说明
 
-**v2.6.0-preview.28** 默认打开兼容账号窗口，并按安装目录独立管理窗口。启动检查通过后会标出游戏入口。安装包包含局域网房间、赛丽亚房间在线修改、物品图标和语言修复。部分原始文字和语音仍待完善，语言切换在**下次启动游戏**时应用。
+**v2.6.0-preview.29** 解压后直接显示英文入口。游戏跟随 Windows 输出音量和静音，本机混音器首次以满音量启动时，游戏应用音量初始化为 35%。启动器默认打开兼容账号窗口。部分原始文字和语音仍待完善，语言切换在**下次启动游戏**时应用。
 
 独立 Windows 测试已覆盖开房、复制邀请、来宾进入角色选择、复用来宾账号重连和关房。两台实机组队仍待验证。[更新记录](CHANGELOG.md) · [故障排查](docs/USAGE.zh-CN.md#打不开时怎么处理)
 
@@ -50,7 +50,7 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 | `AradTrainer.exe` | 单独打开修改器 |
 | `StopAll.exe` | 异常时手动收尾的备用入口 |
 | `CheckStartup.exe` | 生成本机启动检查结果 |
-| `app/` | 游戏、资源、独立运行环境、本地存档与后台组件 |
+| `DNF60_ACT12/` | 游戏、资源、本机服务和存档 |
 | `docs/` | 可离线查看的中英文图文说明 |
 
 仓库包含本项目自编 C#、Python、C++ 源码，完整可玩数据请从 Release 下载。编译方法见[构建说明](docs/BUILD.md)，版本内容见[更新记录](CHANGELOG.md)。

@@ -20,12 +20,12 @@ internal static class LauncherStartupMonitor
                 {
                     string code="0x"+unchecked((uint)launcher.ExitCode).ToString("X8");
                     log("ERROR original-launcher exited code="+code+" pid="+launcher.Id);
-                    throw new InvalidOperationException(component+"在账号界面打开前退出（退出码 "+code+"）。\r\n请运行同目录的“启动检查.exe”，将“启动检查结果.json”发回排查。");
+                    throw new InvalidOperationException(component+"在账号界面打开前退出（退出码 "+code+"）。\r\n请运行 "+InstallPrograms.Diagnostics+" 并提供启动检查报告。");
                 }
                 if(timer.ElapsedMilliseconds>=timeoutMs)
                 {
                     log("ERROR original-launcher account-pane-timeout pid="+launcher.Id);
-                    throw new InvalidOperationException(component+"仍在运行，但账号选择界面未能在规定时间内加载。\r\n请运行同目录的“启动检查.exe”，将检查结果及 logs\\startup-state.json 发回排查。");
+                    throw new InvalidOperationException(component+"仍在运行，但账号选择界面未能在规定时间内加载。\r\n请运行 "+InstallPrograms.Diagnostics+" 并提供启动检查报告及 logs\\startup-state.json。");
                 }
                 ready.WaitOne(Math.Min(120,Math.Max(1,timeoutMs-(int)timer.ElapsedMilliseconds)));
             }
