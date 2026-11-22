@@ -10,6 +10,7 @@ from assets import ROOT, GAME, Npk
 from bridge import Bridge, connect_db
 from admin import AdminService, checked_path
 from local_profiles import ProfileStore
+from lan_room import RoomHost
 from display_locale import names as locale_names, matches as locale_matches, public_page as locale_public_page
 
 HERE=Path(__file__).resolve().parent
@@ -18,6 +19,7 @@ HELPER_VERSION='2.6.0'
 TOKEN=secrets.token_urlsafe(32)
 BRIDGE=Bridge()
 PROFILES=ProfileStore(ROOT)
+ROOM=RoomHost(PROFILES)
 CATALOG=json.loads((HERE/'catalog.json').read_text(encoding='utf-8'))
 ITEMS={i['id']:i for i in CATALOG}
 TOOLTIPS=json.loads((HERE/'item-tooltips.json').read_text(encoding='utf-8')) if (HERE/'item-tooltips.json').exists() else {}
@@ -466,7 +468,8 @@ class Handler(BaseHTTPRequestHandler):
             if not 0<length<=1048576:raise ValueError('请求长度无效')
             body=json.loads(self.rfile.read(length))
             if self.path=='/api/admin':return self.send(200,ADMIN.post(body.get('path'),body.get('body')))
-            routes={'/api/profile':profile,'/api/give':give_items,'/api/inventory':edit_inventory}
+            routes={'/api/profile':profile,'/api/give':give_items,'/api/inventory':edit_inventory,
+                    '/api/lan/status':room_status,'/api/lan/open':ROOM.open,'/api/lan/close':ROOM.close}
             if self.path=='/api/shutdown':
                 self.send(200,{'ok':True});BRIDGE.running=False;threading.Thread(target=self.server.shutdown,daemon=True).start();return
             if self.path not in routes:return self.send(404,{'error':'接口不存在'})
@@ -490,12 +493,24 @@ def main():
     PROFILES.initialize()
     logging.basicConfig(filename=ROOT/'logs'/'trainer.log',level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s',encoding='utf-8')
     server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
-    thread=threading.Thread(target=lambda:asyncio.run(BRIDGE.run()),daemon=True);thread.start()
+    thread=threading.Thread(target=lambda:asyncio.run(run_bridge()),daemon=True);thread.start()
     print('AradReturn local helper http://127.0.0.1:'+str(PORT),flush=True)
     try:server.serve_forever(poll_interval=.5)
     finally:
         BRIDGE.running = False
         server.server_close()
         thread.join(timeout=4)
+
+
+async def room_status(_request):
+    return ROOM.status()
+
+
+async def run_bridge():
+    try:
+        await BRIDGE.run()
+    finally:
+        await ROOM.close()
+
 
 if __name__=='__main__':main()

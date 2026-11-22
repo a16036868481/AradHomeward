@@ -50,7 +50,7 @@ internal sealed class LocalAccountWindow : Form
     private readonly Label heading=new Label(),caption=new Label(),state=new Label();
     private readonly Label languageInfo=new Label(),nameLabel=new Label(),nameHint=new Label();
     private readonly LanguagePicker language=new LanguagePicker();
-    private readonly Button create=new Button(),login=new Button(),save=new Button(),back=new Button();
+    private readonly Button create=new Button(),login=new Button(),save=new Button(),back=new Button(),lan=new Button(),hostRoom=new Button();
     private readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer {Interval=500};
     private List<Dictionary<string,object>> profiles=new List<Dictionary<string,object>>();
     private bool busy,creating,loaded,closing;
@@ -96,6 +96,11 @@ internal sealed class LocalAccountWindow : Form
         ConfigureButton(login,"选择账号登录",true,()=>Login());
         ConfigureButton(save,"创建并选中",true,()=>CreateAccount());
         ConfigureButton(back,"返回账号列表",false,()=>ShowList());
+        ConfigureButton(lan,"加入房间",false,JoinRoom);
+        ConfigureButton(hostRoom,"创建房间",false,CreateRoom);
+        hostRoom.BackColor=Color.FromArgb(63,52,37);
+        hostRoom.ForeColor=gold;
+        hostRoom.FlatAppearance.BorderColor=gold;
         LanguageSupport.Load(Dnf60Control.Root);
         language.Name="GameLanguage";language.AccessibleName="语言 / Language";
         language.BackColor=Color.FromArgb(46,50,58);language.ForeColor=ink;
@@ -110,7 +115,7 @@ internal sealed class LocalAccountWindow : Form
             catch(Exception error){language.SelectedIndex=Array.FindIndex(LanguageSupport.Choices,x=>x.Id==previous);SetStatus(error.Message,true);}
         };
         body.Controls.AddRange(new Control[]{createPane,listPane});
-        Controls.AddRange(new Control[]{heading,caption,language,languageInfo,body,state,create,login,save,back});
+        Controls.AddRange(new Control[]{heading,caption,language,languageInfo,body,state,create,login,save,back,hostRoom,lan});
         body.Visible=false;create.Visible=login.Visible=save.Visible=back.Visible=false;
         Resize+=(s,e)=>LayoutPane();
         Shown+=async(s,e)=>
@@ -208,8 +213,12 @@ internal sealed class LocalAccountWindow : Form
         createPane.Bounds=body.ClientRectangle;listPane.Bounds=body.ClientRectangle;accounts.Bounds=listPane.ClientRectangle;
         name.Width=content;
         nameHint.Width=content;
-        int y=ClientSize.Height-83;create.SetBounds(pad,y,126,37);back.SetBounds(pad,y,140,37);
-        login.SetBounds(w-pad-169,y,169,37);save.SetBounds(w-pad-169,y,169,37);
+        int y=ClientSize.Height-83,gap=8,mainWidth=Math.Min(169,content*3/10);
+        int buttonWidth=Math.Max(1,(content-mainWidth-3*gap)/3);
+        create.SetBounds(pad,y,buttonWidth,37);back.Bounds=create.Bounds;
+        hostRoom.SetBounds(pad+buttonWidth+gap,y,buttonWidth,37);
+        lan.SetBounds(pad+2*(buttonWidth+gap),y,buttonWidth,37);
+        login.SetBounds(w-pad-mainWidth,y,mainWidth,37);save.Bounds=login.Bounds;
         state.SetBounds(pad,ClientSize.Height-36,content,26);
     }
     private void ApplyLanguage()
@@ -222,6 +231,8 @@ internal sealed class LocalAccountWindow : Form
         nameHint.Text=LanguageSupport.Text("给这个账号起个名字，角色和进度会保存在这里。");
         foreach(var pair in new[]{new KeyValuePair<Button,string>(create,"新建账号"),new KeyValuePair<Button,string>(login,"选择账号登录"),new KeyValuePair<Button,string>(save,"创建并选中"),new KeyValuePair<Button,string>(back,"返回账号列表")})
         {pair.Key.Text=LanguageSupport.Text(pair.Value);pair.Key.AccessibleName=pair.Key.Text;}
+        lan.Text=lan.AccessibleName=LanRoomWindow.TextFor("lan_join");
+        hostRoom.Text=hostRoom.AccessibleName=LanRoomWindow.TextFor("lan_create");
         languageInfo.Text=LanguageSupport.Coverage();
         if(!busy)SetStatus(statusText,statusIsError);
         RefreshAccountNames();
@@ -279,26 +290,67 @@ internal sealed class LocalAccountWindow : Form
         await Work("account-login",async()=>
         {
             await launch(id,SetStatus,ParentAlive);
-            closing=true;
-            if(host!=IntPtr.Zero&&ParentAlive())PostMessage(host,0x0010,IntPtr.Zero,IntPtr.Zero);
-            Close();
+            FinishLaunch();
         });
+    }
+    private async void CreateRoom()
+    {
+        if(busy||closing)return;
+        string nameInput=name.Text;
+        if(creating&&String.IsNullOrWhiteSpace(nameInput))
+        {
+            SetStatus("lan_enter_account",true);
+            name.Focus();
+            return;
+        }
+        if(!creating&&accounts.SelectedIndex<0)return;
+        await Work("lan-host",async()=>
+        {
+            var network=LanRoomWindow.PreferredNetwork();
+            string id;
+            if(creating)
+            {
+                SetStatus("正在创建账号并保存存档备份…");
+                var saved=await Task.Run(()=>request(Data("operation","create","name",nameInput)));
+                if(!ParentAlive())throw new OperationCanceledException();
+                ApplyState(saved);
+                name.Clear();
+                id=Value(saved,"selectedId");
+            }
+            else id=Value(profiles[accounts.SelectedIndex],"id");
+            await Dnf60Control.StartAccountGame(id,SetStatus,ParentAlive,network);
+            FinishLaunch();
+        });
+    }
+    private void JoinRoom()
+    {
+        if(busy||closing)return;
+        string suggested=accounts.SelectedIndex<0?name.Text:ProfileName(profiles[accounts.SelectedIndex]);
+        using(var window=new LanRoomWindow(suggested))
+            if(window.ShowDialog(this)!=DialogResult.OK)return;
+        FinishLaunch();
+    }
+    private void FinishLaunch()
+    {
+        closing=true;
+        if(host!=IntPtr.Zero&&ParentAlive())PostMessage(host,0x0010,IntPtr.Zero,IntPtr.Zero);
+        Close();
     }
     private async Task Work(string action,Func<Task> task)
     {
-        if(busy)return;busy=true;body.Enabled=false;language.Enabled=false;create.Enabled=login.Enabled=save.Enabled=back.Enabled=false;
+        if(busy)return;busy=true;body.Enabled=false;language.Enabled=false;create.Enabled=login.Enabled=save.Enabled=back.Enabled=lan.Enabled=hostRoom.Enabled=false;
         try{Dnf60Control.AccountStage(action+"-begin","正在处理账号操作。");await task();Dnf60Control.AccountStage(action+"-done","账号操作已完成。");}
         catch(OperationCanceledException){closing=true;Close();}
         catch(Exception error){Dnf60Control.AccountStage(action+"-failed",error.Message,true);SetStatus(error.Message,true);}
         finally
         {
             busy=false;
-            if(!IsDisposed){body.Enabled=true;language.Enabled=true;create.Enabled=save.Enabled=back.Enabled=true;login.Enabled=accounts.SelectedIndex>=0;if(closing)Close();}
+            if(!IsDisposed){body.Enabled=true;language.Enabled=true;create.Enabled=save.Enabled=back.Enabled=lan.Enabled=hostRoom.Enabled=true;login.Enabled=accounts.SelectedIndex>=0;if(closing)Close();}
         }
     }
     private void SetStatus(string text){SetStatus(text,false);}
     private void SetStatus(string text,bool error)
-    {if(IsDisposed)return;if(InvokeRequired){BeginInvoke((Action)(()=>SetStatus(text,error)));return;}statusText=text;statusIsError=error;state.Text=LanguageSupport.Text(text);state.ForeColor=error?Color.FromArgb(255,156,146):muted;}
+    {if(IsDisposed)return;if(InvokeRequired){BeginInvoke((Action)(()=>SetStatus(text,error)));return;}statusText=text;statusIsError=error;state.Text=LanguageSupport.Text(LanRoomWindow.TextFor(text));state.ForeColor=error?Color.FromArgb(255,156,146):muted;}
     private void DrawAccount(DrawItemEventArgs e)
     {
         if(e.Index<0||e.Index>=profiles.Count)return;

@@ -36,18 +36,28 @@ def _port(values, section, name, fallback):
 @lru_cache(maxsize=16)
 def _configured(directory, config_stamp, relay_stamp):
     root = Path(directory)
-    port = 5555
+    settings = {}
+    relay = {}
     try:
-        port = _port(_ini(root/'server.ini'), 'network', 'relay_tcp_port', port)
+        settings = _ini(root/'server.ini')
     except (OSError, configparser.Error):
         pass
     try:
-        port = _port(_ini(root/'relay.ini'), 'server', 'this_tcp_port', port)
+        relay = _ini(root/'relay.ini')
     except (OSError, configparser.Error):
         pass
-    return port
+    tcp = _port(settings, 'network', 'relay_tcp_port', 5555)
+    udp = _port(settings, 'network', 'relay_udp_port', 5555)
+    return (_port(relay, 'server', 'this_tcp_port', tcp),
+            frozenset((_port(settings, 'network', 'nat_primary_port', 606),
+                       _port(settings, 'network', 'nat_secondary_port', 562),
+                       _port(relay, 'server', 'this_udp_port', udp))))
+
+
+def endpoints(directory):
+    root = Path(directory)
+    return _configured(str(root), _stamp(root/'server.ini'), _stamp(root/'relay.ini'))
 
 
 def relay_tcp_port(directory):
-    root = Path(directory)
-    return _configured(str(root), _stamp(root/'server.ini'), _stamp(root/'relay.ini'))
+    return endpoints(directory)[0]

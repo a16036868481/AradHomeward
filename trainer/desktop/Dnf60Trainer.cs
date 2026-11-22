@@ -24,8 +24,8 @@ using System.Windows.Forms;
 [assembly: AssemblyProduct("阿拉德·归途 · 修改器")]
 [assembly: AssemblyCompany("eirros")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: AssemblyVersion("2.6.0.26")]
-[assembly: AssemblyFileVersion("2.6.0.26")]
+[assembly: AssemblyVersion("2.6.0.27")]
+[assembly: AssemblyFileVersion("2.6.0.27")]
 
 namespace Dnf60Desktop
 {

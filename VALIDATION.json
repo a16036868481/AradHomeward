@@ -1,21 +1,9 @@
 {
-  "version": "2.6.0-preview.26",
-  "checkedOn": "2026-11-19",
-  "publicPackageRuntimeChecks": {
-    "passed": true,
-    "isolatedRuntime": true,
-    "catalogItems": 31474,
-    "allRuntimeHashesValid": true,
-    "emptyShippedAccounts": true,
-    "freshProfileCreation": "passed in temporary fixture",
-    "localCertificateCreation": "passed in temporary fixture",
-    "certificateMismatchRejected": true,
-    "shippedDatabaseUnchanged": true,
-    "servicesStarted": false,
-    "gameStarted": false,
-    "targetComputerGameplayVerified": false
-  },
-  "pinnedRuntimeFiles": 818,
+  "version": "2.6.0-preview.27",
+  "checkedOn": "2026-11-22",
+  "startupDiagnosticChecksPassed": 7,
+  "pinnedRuntimeFiles": 820,
+  "automatedLanAndLifecycleTestsPassed": 10,
   "languageArchiveSelectionsVerified": [
     "zh-Hans",
     "zh-Hant",
@@ -23,33 +11,19 @@
     "ja-JP",
     "ko-KR"
   ],
-  "isolatedGamePlaytest": {
-    "launched": true,
-    "locales": [
-      "en-US",
-      "ko-KR"
-    ],
-    "seriaRoomObserved": true,
-    "onlineCharacterAndInventoryCasesPassed": 5,
-    "emptyDeliveryLettersRemoved": true,
-    "classChangeCaptionsObserved": [
-      "en-US",
-      "ko-KR"
-    ],
-    "desktopStatusAndValuesReadBack": true,
-    "automaticExitAndStandaloneSaveVerified": true,
-    "dungeonEntryAndReturnCoverage": "relay regression tests",
-    "allDungeonsPlayed": false
-  },
-  "regressionTestsPassed": 8,
-  "contentChecks": {
-    "catalogueItems": 31474,
-    "itemsWithIconDefinition": 31474,
-    "uniqueIconFramesPassed": 15297,
-    "fallbackItemIconsTestedThroughEditor": 15,
-    "localizedSpriteFramesDecoded": 360,
-    "textRepairs": 227,
-    "questDefinitionsChecked": 2172
-  },
-  "remainingScope": "Some original text, artwork captions, and voices are still present outside the verified screens."
+  "emptyShippedAccounts": true,
+  "cleanFixtureProfileCreationVerified": true,
+  "newIdentityCreationAndMismatchRejectionVerified": true,
+  "originalLauncherObserved": true,
+  "fallbackAfterSimulatedLauncherErrorObserved": true,
+  "isolatedLanPlaytest": {
+    "gameAndTrainerLaunched": true,
+    "roomPanelOpened": true,
+    "invitationCopyConfirmed": true,
+    "guestAdmissionAndAccountReuseVerified": true,
+    "localHostSelectionPreserved": true,
+    "gameExitClosedRoomAndServices": true,
+    "completedExitBackup": true,
+    "physicalTwoPcPartyPlayVerified": false
+  }
 }

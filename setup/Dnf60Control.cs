@@ -19,10 +19,10 @@ using Dnf60Lifecycle;
 [assembly: System.Reflection.AssemblyTitle("阿拉德·归途 · 会话服务")]
 [assembly: System.Reflection.AssemblyCompany("eirros")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: System.Reflection.AssemblyVersion("2.6.0.26")]
-[assembly: System.Reflection.AssemblyFileVersion("2.6.0.26")]
+[assembly: System.Reflection.AssemblyVersion("2.6.0.27")]
+[assembly: System.Reflection.AssemblyFileVersion("2.6.0.27")]
 
-internal static class Dnf60Control
+internal static partial class Dnf60Control
 {
     internal static readonly string Root = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
     internal static readonly string Game = Path.Combine(Root, "DNF60_ACT12");
@@ -45,6 +45,11 @@ internal static class Dnf60Control
             return 0;
         }
         string action = args[0].TrimStart('-').ToLowerInvariant();
+        if(action=="lan-room")
+        {
+            try { ShowLanHost(); return 0; }
+            catch(Exception error) { MessageBox.Show(LanRoomWindow.TextFor(error.Message),LanRoomWindow.TextFor("lan_room")); return 1; }
+        }
         if(action=="compat-accounts")
         {
             try{ShowStandaloneAccountPane();return 0;}
@@ -98,7 +103,10 @@ internal static class Dnf60Control
             if (action == "start")
             {
                 if(HasGameClient())
-                {StartServices();Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);}
+                {
+                    if(LanGuestRunning())ForegroundGame();
+                    else{StartServices();Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);}
+                }
                 else if(LauncherMode.UseCompatibility(Root))
                 {
                     if(!ForegroundStandaloneAccounts())
@@ -120,9 +128,28 @@ internal static class Dnf60Control
         if(originalStarted!=null)
             using(originalStarted)
             {
-                string state=LauncherStartupMonitor.Wait(originalStarted,HasGameClient,25000,Log);
-                Log("DONE start "+state);
-                Result("start",true,state=="account-pane-ready"?"账号选择界面已显示，等待选择账号登录。":"游戏客户端已启动。");
+                try
+                {
+                    string state=LauncherStartupMonitor.Wait(originalStarted,HasGameClient,25000,Log);
+                    Log("DONE start "+state);
+                    Result("start",true,state=="account-pane-ready"?"账号选择界面已显示，等待选择账号登录。":"游戏客户端已启动。");
+                }
+                catch(InvalidOperationException)
+                {
+                    // A normal close still belongs to the user. Recover when the legacy
+                    // process fails before showing the account pane.
+                    if(!originalStarted.HasExited||originalStarted.ExitCode==0)throw;
+                    Log("FALLBACK original launcher failed; opening the compatibility account window");
+                    using(ControlLocks.Shared.Operation())
+                    {
+                        if(HasGameClient())
+                            Result("start",true,"游戏客户端已启动。");
+                        else if(ForegroundStandaloneAccounts())
+                            Result("start",true,"兼容账号窗口已显示，等待选择账号登录。");
+                        else
+                            compatibleStarted=Launch(Application.ExecutablePath,"--compat-accounts",Root,false);
+                    }
+                }
             }
         if(compatibleStarted!=null)
             using(compatibleStarted)
@@ -142,8 +169,14 @@ internal static class Dnf60Control
                 {
                     if(process.Id==Process.GetCurrentProcess().Id||process.HasExited||process.MainWindowHandle==IntPtr.Zero)continue;
                     if(!String.Equals(process.MainModule.FileName,Application.ExecutablePath,StringComparison.OrdinalIgnoreCase))continue;
-                    if(!process.MainWindowTitle.StartsWith("阿拉德·归途 ·",StringComparison.Ordinal))continue;
-                    SetForegroundWindow(process.MainWindowHandle);return true;
+                    EventWaitHandle ready;
+                    if(!EventWaitHandle.TryOpenExisting(LauncherStartupMonitor.ReadyEvent(process.Id),out ready))continue;
+                    using(ready)
+                    {
+                        if(!ready.WaitOne(0))continue;
+                        SetForegroundWindow(process.MainWindowHandle);
+                        return true;
+                    }
                 }
                 catch(InvalidOperationException){}
                 catch(System.ComponentModel.Win32Exception){}
@@ -158,7 +191,7 @@ internal static class Dnf60Control
         using(ControlLocks.Shared.AccountPane())
         using(var ready=new EventWaitHandle(false,EventResetMode.ManualReset,LauncherStartupMonitor.ReadyEvent(Process.GetCurrentProcess().Id)))
         {
-            if(HasGameClient()){Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);return;}
+            if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);return;}
             AccountStage("native-account-ui-opening","正在打开本机账号选择窗口。");
             LocalAccountWindow.SetThreadDpiAwarenessContext(new IntPtr(-1));
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
@@ -205,7 +238,7 @@ internal static class Dnf60Control
         using(ControlLocks.Shared.AccountPane())
         using(var ready=new EventWaitHandle(false,EventResetMode.ManualReset,LauncherStartupMonitor.ReadyEvent(pid)))
         {
-            if(HasGameClient()){Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);PostMessage(parent,0x0010,IntPtr.Zero,IntPtr.Zero);return;}
+            if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);PostMessage(parent,0x0010,IntPtr.Zero,IntPtr.Zero);return;}
             LocalAccountWindow.SetThreadDpiAwarenessContext(new IntPtr(-1));
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new LocalAccountWindow(parent,pid,ProfileRequest,StartProfileSession,()=>{AccountStage("account-pane-visible","账号选择窗口已显示。");ready.Set();}));
@@ -213,16 +246,24 @@ internal static class Dnf60Control
         AccountStage("account-pane-closed","账号选择窗口已关闭。");
     }
 
-    private static async Task StartProfileSession(string profileId,Action<string> state,Func<bool> stillOpen)
+    private static Task StartProfileSession(string profileId,Action<string> state,Func<bool> stillOpen)
+    {
+        return StartAccountGame(profileId,state,stillOpen,null);
+    }
+
+    internal static async Task StartAccountGame(string profileId,Action<string> state,Func<bool> stillOpen,
+        Dictionary<string,object> roomNetwork)
     {
         await Task.Run(()=>
         {
             using(ControlLocks.Shared.Operation())
             {
                 bool servicesAlreadyRunning=BackendReady();
+                bool openedRoom=false;
                 try
                 {
                     if(!stillOpen())throw new OperationCanceledException();
+                    if(roomNetwork!=null&&HasGameClient())throw new InvalidOperationException("lan_local_port_busy");
                     state("正在检查游戏语言包…");LanguageSupport.ValidateForGame(Root);
                     AccountStage("profile-services","正在准备本机游戏服务。");
                     state("正在准备本机游戏服务…");StartServices();
@@ -232,17 +273,41 @@ internal static class Dnf60Control
                     var credentials=ProfileRequest(new Dictionary<string,object>{{"operation","login"},{"id",profileId}});
                     string account=Convert.ToString(credentials["account"]),secret=Convert.ToString(credentials["secret"]);
                     if(!stillOpen())throw new OperationCanceledException();
+                    if(roomNetwork!=null)
+                    {
+                        state("lan_creating");
+                        var previous=LanHostRequest("status",new Dictionary<string,object>());
+                        var room=LanHostRequest("open",roomNetwork);
+                        if(!Convert.ToBoolean(room["open"]))throw new InvalidOperationException("lan_open_failed");
+                        openedRoom=!Convert.ToBoolean(previous["open"]);
+                        if(!stillOpen())throw new OperationCanceledException();
+                    }
                     state("正在进入游戏…");
                     AccountStage("profile-game-start","正在启动游戏客户端。");
-                    LaunchProfileGame(account,secret);
+                    using(LaunchProfileGame(account,secret)){}
                     credentials.Clear();secret=null;
                     Launch(Path.Combine(Root,"归途修改器.exe"),"--profile-selected",Root,false);
-                    Result("profile-login",true,"已登录所选本机账号");
+                    if(roomNetwork==null)
+                        Result("profile-login",true,"已登录所选本机账号");
+                    else
+                    {
+                        try
+                        {
+                            using(Launch(Path.Combine(Root,"DNF60控制台.exe"),"--lan-room",Root,false)){}
+                            Result("lan-host",true,"房间已创建。");
+                        }
+                        catch(Exception error)
+                        {
+                            Log("LAN room window: "+error.GetType().Name);
+                            Result("lan-host",true,"房间已创建，可从修改器打开房间窗口。");
+                        }
+                    }
                     AccountStage("profile-game-running","游戏客户端与修改器已启动。");
                 }
                 catch(Exception ex)
                 {
                     AccountStage("profile-login-failed",ex.Message,true);Result("profile-login",false,ex.Message);
+                    if(openedRoom&&!HasGameClient())CloseLanRoom();
                     if(!servicesAlreadyRunning&&!HasGameClient())try{StopAll(true);}catch(Exception cleanup){Log("ERROR profile-cleanup "+cleanup.Message);}
                     throw;
                 }
@@ -250,22 +315,28 @@ internal static class Dnf60Control
         });
     }
 
-    private static void LaunchProfileGame(string account,string secret)
+    private static Process LaunchProfileGame(string account,string secret,string address="127.0.0.2")
     {
         string file=Path.Combine(Client,"DNF.exe");
-        using(var game=Process.Start(new ProcessStartInfo(file,GameArguments(account,secret)){WorkingDirectory=Client,UseShellExecute=false,WindowStyle=ProcessWindowStyle.Normal}))
+        var game=Process.Start(new ProcessStartInfo(file,GameArguments(account,secret,address)){WorkingDirectory=Client,UseShellExecute=false,WindowStyle=ProcessWindowStyle.Normal});
+        if(game==null)throw new InvalidOperationException("游戏启动未完成，请重试。");
+        try
         {
-            if(game==null)throw new InvalidOperationException("游戏启动未完成，请重试。");
             Log("START "+file+" pid="+game.Id);
             if(game.WaitForExit(1600)&&!HasGameClient())throw new InvalidOperationException("游戏启动后提前退出（退出码 0x"+unchecked((uint)game.ExitCode).ToString("X8")+"），请运行启动检查后将结果发回排查。");
+            return game;
         }
+        catch{game.Dispose();throw;}
     }
 
     internal static string GameArguments(string account,string secret)
+    {return GameArguments(account,secret,"127.0.0.2");}
+
+    private static string GameArguments(string account,string secret,string address)
     {
         if(String.IsNullOrEmpty(account)||account.Length>11||account.Any(c=>c<'0'||c>'9')||String.IsNullOrEmpty(secret)||secret.Length>16||secret.Any(c=>!((c>='0'&&c<='9')||(c>='a'&&c<='z')||(c>='A'&&c<='Z'))))
             throw new InvalidOperationException("本机账号记录无效。");
-        return "99?127.0.0.2?7001?"+account+"?"+secret+"?0?0?0?0?0?0?0?0?0?0?0";
+        return "99?"+address+"?7001?"+account+"?"+secret+"?0?0?0?0?0?0?0?0?0?0?0";
     }
 
     private static void EnsureLocalIdentity()
@@ -315,6 +386,7 @@ internal static class Dnf60Control
 
     private static void StopAll(bool keepLauncher=false)
     {
+        CloseLanRoom();
         // Finish a desktop edit before stopping the authoritative game service.
         string trainerExe = Path.Combine(Root, "归途修改器.exe");
         foreach (var p in Process.GetProcesses())
@@ -434,10 +506,10 @@ internal static class Dnf60Control
     internal static void LogSessionError(Exception ex)
     { Log("ERROR client-exit "+ex.Message);Result("client-exit",false,ex.Message); }
 
-    private static void ConfigureClientBridge()
+    private static void ConfigureClientBridge(string address="127.0.0.2")
     {
         string config = Path.Combine(Client, "config", "game.ini");
-        string expected = "[network]\r\nhost=127.0.0.2\r\nport=7001\r\n";
+        string expected = "[network]\r\nhost="+address+"\r\nport=7001\r\n";
         if (File.ReadAllText(config).Replace("\r\n", "\n") == expected.Replace("\r\n", "\n")) return;
         string backup = Path.Combine(Root, "setup", "game.ini.before-online-trainer");
         if (!File.Exists(backup)) File.Copy(config, backup, false);
@@ -457,6 +529,7 @@ internal static class Dnf60Control
 
     private static void StopGameOnly()
     {
+        CloseLanRoom();
         foreach(var p in Owned(Client)){try{p.CloseMainWindow();}catch(InvalidOperationException){}}
         foreach(var p in Owned(Server).Where(p=>SafeName(p)=="a12_server"))
             Graceful(p,30000,"服务端尚未正常退出，为保护存档未强行结束它。");

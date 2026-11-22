@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Open [Releases](https://github.com/a16036868481/AradHomeward/releases) and download `AradHomeward-v2.6.0-preview.26-win-x64.zip` from **Assets**, together with `SHA256SUMS.txt` if you want to verify the download. Extract the whole ZIP to a writable local folder such as `D:\Games\AradHomeward`.
+Download `AradHomeward-v2.6.0-preview.27-win-x64.zip` from **Assets**. For download verification, also get `SHA256SUMS.txt`. Extract the whole ZIP to a writable local folder such as `D:\Games\AradHomeward`. [Windows release](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.27)
 
 Keep the `app` folder next to all four EXE entries. Do not run from inside the ZIP, move just one EXE, or install into a protected system folder. The download is for Windows 10/11 x64; it is not an Android, macOS or Linux build.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.26-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.27-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Create a local account
 
@@ -28,7 +28,15 @@ The language menu offers **简体中文 / 繁體中文 / English / 日本語 / �
 
 This is a translation preview: some original text, bitmap text and voices remain; automatic translations can be inaccurate. The launcher displays coverage and fallback information. It does not claim support for every world language.
 
-## 4. Play and use the trainer
+## 4. Play on the local network
+
+1. On the host PC, select an account in the launcher and choose **Create room**. Once the room opens, select **Copy invitation**.
+2. On the guest PC, choose **Join room**, paste the invitation and enter a player name.
+3. Both players choose the same channel. The host PC saves guest progress.
+
+The room panel shows the address, connected guests and controls to copy the invitation or close the room. Use the same LAN build and connect both PCs to the same local network. [LAN room guide](LAN.md)
+
+## 5. Play and use the trainer
 
 Create or choose a character in the game. The native trainer opens with the game. You can make supported online edits in town or in Seria's room. Choose your character at the top right of the trainer.
 
@@ -49,7 +57,7 @@ Hover over the icon or name for details. Double-click the item name or press **A
 
 Character sections save separately. A class change reconfigures skills. Full attribute edits and inventory deletion require the character to be offline. Read the prompt shown for an operation before applying it.
 
-## 5. Exit and keep saves
+## 6. Exit and keep saves
 
 Choose **End Game inside the game**. The session manager closes the related trainer and background services and creates a save backup. Normally there is no need to run `StopAll.exe`; it is a fallback for an interrupted session. Allow shutdown to finish before copying or replacing files.
 
@@ -62,7 +70,7 @@ To move your progress, exit normally on both PCs and copy the **entire extracted
 | Symptom | Action |
 | --- | --- |
 | Missing files, no window, or instant exit | Extract the entire ZIP again to a short writable path and check the archive hash. Keep all folders together. |
-| Launcher fails on this PC | Exit first. Change `app/setup/launcher-mode.json` from `{"mode":"original"}` to `{"mode":"compat"}`, then start `AradHomeward.exe` again. The same native account pane opens in a compatibility window. |
+| The account window does not appear | The launcher opens the compatibility account window after an early process error. To select that window directly, exit and set `"mode":"compat"` in `app/setup/launcher-mode.json`, then run `AradHomeward.exe`. |
 | Game service fails to start | Run **CheckStartup.exe** and inspect its report plus `app/logs/` and `app/DNF60_ACT12/ACT12_Server/server_log.txt`. The relay preflight can select a free local port when 5555 is unavailable. |
 | Login identity is incomplete or mismatched | Restore the complete installation from its backup. Do not copy certificates from another unrelated installation or disable certificate validation. |
 | Some text is still in the original language | Exit, choose the language again and relaunch. Report the language, screen and an image; some original resources remain in this preview. |

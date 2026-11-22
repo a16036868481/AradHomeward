@@ -4,9 +4,9 @@
 
 A portable Windows ACT12 / level-60 local game package with a name-only account launcher, a native desktop trainer, and five display languages. Custom launcher, trainer and localization work by **eirros**.
 
-**[Download the Windows package](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
+**[Download the Windows package](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.27)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-Download `AradHomeward-v2.6.0-preview.26-win-x64.zip` from the release's **Assets**. This ZIP includes the game, server, and native editor.
+Download `AradHomeward-v2.6.0-preview.27-win-x64.zip` from the release's **Assets**. This ZIP includes the game, server, native editor and LAN room support.
 
 ![Account selection example](docs/images/launcher-select-en-US.png)
 
@@ -23,6 +23,7 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 ## Included features
 
 - Saved local accounts selected by name; a fresh download starts with no personal accounts or characters.
+- **Create room** and **Join room** in the launcher. The host window shows the room address, guest count and a button to copy the invitation. [LAN room guide](docs/LAN.md)
 - Native Windows trainer: gold, Cera, level, SP, class, inventory, quests, mail, gameplay and channels.
 - Item icons, name/ID search, multiple selection, quantities, reinforcement, amplification and hover details.
 - Launcher, supported game text/interface resources and trainer language selection: Simplified Chinese, Traditional Chinese, English, Japanese and Korean.
@@ -33,9 +34,9 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 
 ## Current release status
 
-**v2.6.0-preview.26** repairs online editing in Seria's room, fills 15 catalogue icon gaps, and localizes additional legacy menus, class advancement, awakening, and replay captions. Display languages remain in preview. Some original game text and voices are still present. Language changes apply to the **next game launch**.
+**v2.6.0-preview.27** adds LAN rooms and opens a compatibility account window if the original launcher exits with an error before the account screen appears. The package includes the Seria room editing, item icon and localization fixes from the previous release. Some original game text and voices remain. Language changes apply to the **next game launch**.
 
-An isolated Windows playtest verified online character and inventory edits in Seria's room, including bulk delivery and empty-letter cleanup. Native resource checks verified all five language selections. See the [release changes](CHANGELOG.md) and [troubleshooting](docs/USAGE.en.md#troubleshooting).
+Isolated Windows tests covered opening a room, copying the invitation, joining the character selector, reconnecting to the same guest account and closing the room. Party play on two physical PCs remains to be verified. [Release changes](CHANGELOG.md) · [Troubleshooting](docs/USAGE.en.md#troubleshooting)
 
 The pictures are native interface renders with **Explorer / Adventurer demo data**, not a bundled playable save.
 

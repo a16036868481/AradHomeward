@@ -136,6 +136,17 @@ namespace Dnf60Desktop
             string[] keys={"level","gold","cera","sp"},names={"角色等级","角色金币","商城点券","技能点 SP"},notes={"当前角色","角色持有","账号共享","方案 A / 方案 B"};
             for(int i=0;i<4;i++){var card=new SurfacePanel {Dock=DockStyle.Fill,Margin=new Padding(0,0,i==3?0:12,8)};var caption=Theme.Label(names[i],9,Theme.Muted);caption.Location=new Point(16,14);var value=new MetricLabel {Text="—"};value.Location=new Point(13,34);value.AutoSize=false;value.AutoEllipsis=true;value.Size=new Size(240,38);dashboardValues[keys[i]]=value;var hint=Theme.Label(notes[i],8,Theme.Muted);hint.Location=new Point(17,80);card.Controls.Add(caption);card.Controls.Add(value);card.Controls.Add(hint);card.Resize+=(s,e)=>value.Width=Math.Max(90,card.Width-25);metrics.Controls.Add(card,i,0);}
             var shortcutsTitle=new Panel {Dock=DockStyle.Top,Height=48};var a=Theme.Label(TrainerLanguage.T("常用操作"),12,Theme.Text);a.Font=new Font(a.Font,FontStyle.Bold);a.Location=new Point(1,17);shortcutsTitle.Controls.Add(a);
+            var room=Theme.Button(LanRoomText.Get("lan_room",TrainerLanguage.Locale),(s,e)=>
+            {
+                try
+                {
+                    using(var process=Process.Start(new ProcessStartInfo(Path.Combine(Program.Root,"DNF60控制台.exe"),"--lan-room"){WorkingDirectory=Program.Root,UseShellExecute=false,CreateNoWindow=true})){}
+                }
+                catch(Exception error){SetStatus(error.Message,true);}
+            },false);
+            room.AutoSize=false;room.Size=new Size(152,34);room.Anchor=AnchorStyles.Top|AnchorStyles.Right;
+            room.Location=new Point(shortcutsTitle.ClientSize.Width-room.Width,7);
+            shortcutsTitle.Controls.Add(room);
             var shortcuts=new TableLayoutPanel {Dock=DockStyle.Top,Height=216,ColumnCount=2,RowCount=2,BackColor=Theme.Bg};shortcuts.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));shortcuts.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));shortcuts.RowStyles.Add(new RowStyle(SizeType.Percent,50));shortcuts.RowStyles.Add(new RowStyle(SizeType.Percent,50));
             shortcuts.Controls.Add(new DashboardTile(TrainerLanguage.T("修改角色属性"),TrainerLanguage.T("金币、点券、等级和技能点"),1,(s,e)=>NavigateSection(1,0)),0,0);shortcuts.Controls.Add(new DashboardTile(TrainerLanguage.T("批量发放物品"),TrainerLanguage.T("搜索图标和名称，多选并设置数量"),2,(s,e)=>NavigateSection(2,0)),1,0);shortcuts.Controls.Add(new DashboardTile(TrainerLanguage.T("管理游戏频道"),TrainerLanguage.T("查看频道，选择开放范围"),4,(s,e)=>NavigateSection(4,1)),0,1);shortcuts.Controls.Add(new DashboardTile(TrainerLanguage.T("备份与恢复存档"),TrainerLanguage.T("创建备份、导出或恢复角色"),5,(s,e)=>NavigateSection(5,0)),1,1);
             var info=new SurfacePanel {Dock=DockStyle.Top,Height=116,Padding=new Padding(18)};var infoTitle=Theme.Label(TrainerLanguage.T("本机状态"),11,Theme.Text);infoTitle.Font=new Font(infoTitle.Font,FontStyle.Bold);infoTitle.Location=new Point(18,17);info.Controls.Add(infoTitle);dashboardHint=Theme.Label(TrainerLanguage.T("正在连接本机游戏服务…"),9,Theme.Muted);dashboardHint.AutoSize=false;dashboardHint.Size=new Size(900,60);dashboardHint.Location=new Point(19,46);info.Controls.Add(dashboardHint);info.Resize+=(s,e)=>dashboardHint.Width=Math.Max(300,info.Width-35);

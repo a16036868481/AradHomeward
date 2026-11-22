@@ -1,5 +1,14 @@
 # Changes
 
+## v2.6.0-preview.27 — 2026-11-22
+
+- Start a private LAN room from the saved-account screen. The room window shows the address, connected guests, and a copy-invitation button. Guests join by invitation and player name.
+- Guest progress is saved on the host PC and can be resumed from the same guest installation. Room closure disconnects guests. Exiting the host game closes the room and saves a backup.
+- Recover from an early original-launcher error by opening the compatibility account window. Startup diagnostics verify the archived runtime using the bundled file manifest.
+- The complete Windows ZIP includes the launcher, LAN room features, current trainer, and bilingual illustrated instructions.
+
+Local Windows tests verified room creation and closure, guest sign-in to character selection, and guest account reconnection. Party play on two physical PCs remains unverified. Part of the legacy text and voice content remains in the original language.
+
 ## v2.6.0-preview.26 — 2026-11-19
 
 - Online edits use native dungeon loading and town-return events to determine when editing is available. Tested gold, Cera, level, skill points, fatigue, class changes, bulk grants, and inventory edits in Seria's room.

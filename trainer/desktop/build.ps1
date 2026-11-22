@@ -5,6 +5,7 @@ $taskCompiler = Join-Path ([Environment]::GetFolderPath('Windows')) 'Microsoft.N
 $taskOutput = if($OutputPath){[IO.Path]::GetFullPath($OutputPath)}else{Join-Path $taskRoot '归途修改器.exe'}
 if(-not $taskOutput.StartsWith($taskRoot+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Build output must stay inside this installation.'}
 $taskSources = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.cs' -File | ForEach-Object { $_.FullName })
+$taskSources += Join-Path $taskRoot 'setup\LanRoomText.cs'
 $taskManifest = Join-Path $PSScriptRoot 'app.manifest'
 $taskIcon = Join-Path $taskRoot 'DNF60_ACT12\ACT12\DNF.ico'
 if (Get-Process | Where-Object { try { $_.Path -eq $taskOutput } catch { $false } }) {

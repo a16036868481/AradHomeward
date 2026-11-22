@@ -46,30 +46,50 @@ def connect_db():
     db.execute('pragma busy_timeout=8000')
     return db
 
-def local_server_ports():
-    """Native Windows listener inventory; require the exact installed server."""
+def installed_server_endpoints(include_udp=True):
+    """Return the exact installed game server's loopback TCP and UDP ports."""
     ip = ctypes.WinDLL('iphlpapi'); kernel = ctypes.WinDLL('kernel32',use_last_error=True)
     size = wt.DWORD(0)
     ip.GetExtendedTcpTable(None,ctypes.byref(size),False,2,3,0)
     buf = ctypes.create_string_buffer(size.value)
-    if ip.GetExtendedTcpTable(buf,ctypes.byref(size),False,2,3,0): return set()
+    if ip.GetExtendedTcpTable(buf,ctypes.byref(size),False,2,3,0): return set(), set()
     count = u32(buf.raw)
     rows = [struct.unpack_from('<6I',buf.raw,4+i*24) for i in range(count)]
     row = next((r for r in rows if socket.ntohs(r[2]&65535)==7001 and socket.inet_ntoa(struct.pack('<I',r[1]))=='127.0.0.1'),None)
-    if not row: return set()
+    if not row: return set(), set()
     pid = row[5]
     kernel.OpenProcess.restype = wt.HANDLE
     kernel.OpenProcess.argtypes = [wt.DWORD,wt.BOOL,wt.DWORD]
     kernel.QueryFullProcessImageNameW.argtypes = [wt.HANDLE,wt.DWORD,wt.LPWSTR,ctypes.POINTER(wt.DWORD)]
     kernel.CloseHandle.argtypes = [wt.HANDLE]
     handle = kernel.OpenProcess(0x1000,False,pid)
-    if not handle: return set()
+    if not handle: return set(), set()
     try:
         path=ctypes.create_unicode_buffer(32768); n=wt.DWORD(len(path))
-        if not kernel.QueryFullProcessImageNameW(handle,0,path,ctypes.byref(n)): return set()
-        if Path(path.value).resolve() != (GAME/'ACT12_Server'/'a12_server.exe').resolve(): return set()
+        if not kernel.QueryFullProcessImageNameW(handle,0,path,ctypes.byref(n)): return set(), set()
+        if Path(path.value).resolve() != (GAME/'ACT12_Server'/'a12_server.exe').resolve(): return set(), set()
     finally: kernel.CloseHandle(handle)
-    return {socket.ntohs(r[2]&65535) for r in rows if r[5]==pid and socket.ntohs(r[2]&65535)!=relay_tcp_port(GAME/'ACT12_Server')}
+    loopback = struct.unpack('<I', socket.inet_aton('127.0.0.1'))[0]
+    tcp = {socket.ntohs(r[2] & 65535) for r in rows if r[5] == pid and r[1] == loopback}
+    if not include_udp:
+        return tcp, set()
+    size = wt.DWORD(0)
+    ip.GetExtendedUdpTable(None, ctypes.byref(size), False, 2, 1, 0)
+    udp = set()
+    if size.value:
+        table = ctypes.create_string_buffer(size.value)
+        if not ip.GetExtendedUdpTable(table, ctypes.byref(size), False, 2, 1, 0):
+            for i in range(u32(table.raw)):
+                address, port, owner = struct.unpack_from('<3I', table.raw, 4 + i * 12)
+                if owner == pid and address == loopback:
+                    udp.add(socket.ntohs(port & 65535))
+    return tcp, udp
+
+
+def local_server_ports():
+    """Online editor endpoints exclude the native relay."""
+    tcp, _ = installed_server_endpoints(include_udp=False)
+    return tcp - {relay_tcp_port(GAME/'ACT12_Server')}
 
 
 async def forward_until_closed(client_to_server, server_to_client):
@@ -121,7 +141,8 @@ class Session:
             except TimeoutError:
                 pass
 
-    async def entrance(self):
+    async def entrance(self, address='127.0.0.2'):
+        channel_address = address.encode('ascii').ljust(16, b'\0')
         async def c2s():
             while data:=await self.reader.read(65536):
                 self.server_writer.write(data); await self.server_writer.drain()
@@ -140,7 +161,7 @@ class Session:
                     encrypted=zlib.decompress(body[5:])
                     cipher=Cipher(algorithms.AES(entrance_key),modes.ECB())
                     op=cipher.decryptor();plain=op.update(encrypted)+op.finalize()
-                    rewritten=plain.replace(b'127.0.0.1'+b'\0'*7,b'127.0.0.2'+b'\0'*7)
+                    rewritten=plain.replace(b'127.0.0.1'+b'\0'*7,channel_address)
                     op=cipher.encryptor();encrypted=op.update(rewritten)+op.finalize()
                     body=body[:5]+zlib.compress(encrypted,9)
                     header=header[:2]+struct.pack('<I',6+len(body))
