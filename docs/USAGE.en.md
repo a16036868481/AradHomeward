@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Extract the whole `AradHomeward-v2.6.0-preview.34-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
+Extract the whole `AradHomeward-v2.6.0-preview.35-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
 
 Keep the extracted files and folders together. The package requires Windows 10 or 11 x64.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.34-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.35-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Choose a mode and create a local account
 
@@ -46,7 +46,7 @@ The room panel shows the address, connected guests and controls to copy the invi
 
 Create or choose a character in the game. The native trainer opens with the game. You can make supported online edits in town or in Seria's room. Choose your character at the top right of the trainer.
 
-On first use of an output device, the game sets its default mixer volume to half that device's current Windows volume. For example, 40% in Windows sets the game to 20%. Adjustments in Windows Volume Mixer are used on later starts.
+On first use of an output device, the game sets its default mixer volume to one quarter of that device's current Windows volume. For example, 40% in Windows sets the game to 10%. Adjustments in Windows Volume Mixer are used on later starts.
 
 ![Items page with example icons](images/trainer-items-en-US.png)
 

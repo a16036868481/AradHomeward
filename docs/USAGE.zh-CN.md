@@ -4,11 +4,11 @@
 
 ## 1. 下载并完整解压
 
-将 `AradHomeward-v2.6.0-preview.34-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
+将 `AradHomeward-v2.6.0-preview.35-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
 
 解压后的程序和数据文件夹请一起保留。本包需要 Windows 10/11 64 位。
 
-需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.34-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
+需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.35-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
 
 ## 2. 选择模式与新建账号
 
@@ -46,7 +46,7 @@
 
 进入游戏后新建或选择角色。修改器会随游戏打开。在城镇或赛丽亚房间时，可从修改器右上角选择角色并在线修改。
 
-首次使用某个输出设备时，游戏混音器的默认音量设为该设备当前 Windows 音量的一半。例如，Windows 为 40% 时，游戏为 20%。之后在 Windows 音量混音器调整的游戏音量会在下次启动时继续使用。
+首次使用某个输出设备时，游戏混音器的默认音量设为该设备当前 Windows 音量的四分之一。例如，Windows 为 40% 时，游戏为 10%。之后在 Windows 音量混音器调整的游戏音量会在下次启动时继续使用。
 
 ![物品图标与多选页面示例](images/trainer-items-zh-Hans.png)
 

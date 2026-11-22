@@ -56,7 +56,7 @@ internal static class GameVolume
         // At zero, keep waiting instead of saving a permanently silent app slider.
         if (outputVolume == 0f) return false;
 
-        float initialVolume = outputVolume * 0.5f;
+        float initialVolume = outputVolume * 0.25f;
         Guid context = Guid.Empty;
         volume.SetMasterVolume(initialVolume, ref context);
         log("AUDIO pid=" + pid + " game mixer initialized to " + Percent(initialVolume) +

@@ -1,5 +1,5 @@
 {
-  "version": "2.6.0-preview.34",
+  "version": "2.6.0-preview.35",
   "checkedOn": "2026-11-23",
   "automatedTestsPassed": 16,
   "startupDiagnosticChecksPassed": 7,
@@ -29,7 +29,7 @@
   "firstRunAudio": {
     "verifiedWith": "Windows mixer and isolated playback session",
     "testInputPercent": 40,
-    "gameMixerPercent": 20,
+    "gameMixerPercent": 10,
     "zeroOutputDeferred": true,
     "manualMixerAdjustmentPreserved": true
   },

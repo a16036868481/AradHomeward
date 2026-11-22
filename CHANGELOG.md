@@ -1,5 +1,9 @@
 # Changes
 
+## v2.6.0-preview.35 — 2026-11-23
+
+- Reduced the first-use game mixer volume to one quarter of the current Windows output volume.
+
 ## v2.6.0-preview.34 — 2026-11-23
 
 - On first use of an output device, the default game mixer volume starts at half the device's current Windows volume. The game also keeps manual mixer adjustments.
