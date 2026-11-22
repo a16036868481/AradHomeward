@@ -1,5 +1,5 @@
 {
-  "version": "2.6.0-preview.33",
+  "version": "2.6.0-preview.34",
   "checkedOn": "2026-11-23",
   "automatedTestsPassed": 16,
   "startupDiagnosticChecksPassed": 7,
@@ -16,6 +16,7 @@
     "firstRunIdentityVerifiedInTemporaryFixture": true
   },
   "launcherModes": {
+    "checkedIn": "2.6.0-preview.33",
     "layoutLanguages": ["zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR"],
     "layoutScreens": ["mode selection", "multiplayer", "new account", "saved accounts"],
     "nativeWindowsChecks": [
@@ -24,6 +25,13 @@
       "local account hosted a LAN room and reached channel selection",
       "guest without a local profile could open and cancel the join dialog"
     ]
+  },
+  "firstRunAudio": {
+    "verifiedWith": "Windows mixer and isolated playback session",
+    "testInputPercent": 40,
+    "gameMixerPercent": 20,
+    "zeroOutputDeferred": true,
+    "manualMixerAdjustmentPreserved": true
   },
   "carriedForwardRuntimeChecksFrom": "2.6.0-preview.32",
   "nativeServerSkillRegression": {

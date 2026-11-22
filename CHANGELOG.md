@@ -1,5 +1,9 @@
 # Changes
 
+## v2.6.0-preview.34 — 2026-11-23
+
+- On first use of an output device, the default game mixer volume starts at half the device's current Windows volume. The game also keeps manual mixer adjustments.
+
 ## v2.6.0-preview.33 — 2026-11-23
 
 - Added a mode selection screen to both launcher variants, with labels in all five supported languages.

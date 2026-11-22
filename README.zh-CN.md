@@ -6,7 +6,7 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 
 **[Windows 发布页](https://github.com/a16036868481/AradHomeward/releases)** · **[中文图文说明](docs/USAGE.zh-CN.md)** · **[English guide](docs/USAGE.en.md)**
 
-`AradHomeward-v2.6.0-preview.33-win-x64.zip` 是 Windows 完整包，包含游戏、本机服务、桌面修改器和局域网房间。
+`AradHomeward-v2.6.0-preview.34-win-x64.zip` 是 Windows 完整包，包含游戏、本机服务、桌面修改器和局域网房间。
 
 解压到新文件夹即可试用，原安装目录里的存档可继续保留。双击解压目录最外层的 `AradHomeward.exe` 启动。
 
@@ -36,7 +36,7 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 
 ## 当前版本说明
 
-**v2.6.0-preview.33** 启动后先选择「单人模式」或「多人模式」。局域网掉线后会弹出「重新加入房间」，其中保留原邀请和玩家名称。
+**v2.6.0-preview.34** 将首次游玩的默认游戏音量设为当前 Windows 输出音量的一半。启动后先选择「单人模式」或「多人模式」。局域网掉线后会弹出「重新加入房间」，其中保留原邀请和玩家名称。
 
 语言切换在**下次启动游戏**时应用，部分游戏文字和语音仍使用原语言。[更新记录](CHANGELOG.md) · [故障排查](docs/USAGE.zh-CN.md#打不开时怎么处理)
 

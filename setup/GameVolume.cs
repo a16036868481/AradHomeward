@@ -7,7 +7,6 @@ using System.Runtime.InteropServices;
 
 internal static class GameVolume
 {
-    private const float DefaultMixerVolume = 0.35f;
     internal static void Monitor(Process game, string root, Action<string> log)
     {
         try
@@ -19,23 +18,12 @@ internal static class GameVolume
             while (!game.HasExited)
             {
                 var pending = new HashSet<string>();
-                bool found = VisitSessions((uint)pid, (session, volume) =>
+                bool waitingForOutputVolume = false;
+                bool found = VisitSessions((uint)pid, (session, volume, readOutputVolume) =>
                 {
-                    if (initialized.Contains(session)) return;
-
-                    float current;
-                    bool muted;
-                    volume.GetMasterVolume(out current);
-                    volume.GetMute(out muted);
-                    // The endpoint master and its mute are applied by Windows.
-                    // Initialize only the game's own unadjusted mixer slider.
-                    if (!muted && current >= 0.999f)
-                    {
-                        Guid context = Guid.Empty;
-                        volume.SetMasterVolume(DefaultMixerVolume, ref context);
-                        log("AUDIO pid=" + pid + " game mixer initialized to " + DefaultMixerVolume.ToString("P0", System.Globalization.CultureInfo.InvariantCulture));
-                    }
-                    pending.Add(session);
+                    if (initialized.Contains(session) || pending.Contains(session)) return;
+                    if (TryInitializeSession(volume, readOutputVolume, pid, log)) pending.Add(session);
+                    else waitingForOutputVolume = true;
                 });
                 if (pending.Count > 0)
                 {
@@ -45,7 +33,7 @@ internal static class GameVolume
                 }
                 // The legacy client opens its audio sessions after channel selection.
                 // Keep watching for new sessions while the client is alive.
-                int interval = found ? 2000 : (clock.ElapsedMilliseconds < 15000 ? 150 : 400);
+                int interval = found && !waitingForOutputVolume ? 2000 : (clock.ElapsedMilliseconds < 15000 ? 100 : 250);
                 if (game.WaitForExit(interval)) return;
             }
         }
@@ -55,7 +43,33 @@ internal static class GameVolume
         catch (UnauthorizedAccessException error) { log("AUDIO local mixer state unavailable: " + error.GetType().Name); }
     }
 
-    internal static bool VisitSessions(uint pid, Action<string, ISimpleAudioVolume> visit)
+    internal static bool TryInitializeSession(ISimpleAudioVolume volume, Func<float> readOutputVolume,
+        int pid, Action<string> log)
+    {
+        float current;
+        bool muted;
+        volume.GetMasterVolume(out current);
+        volume.GetMute(out muted);
+        if (muted || current < 0.999f) return true;
+
+        float outputVolume = readOutputVolume();
+        // At zero, keep waiting instead of saving a permanently silent app slider.
+        if (outputVolume == 0f) return false;
+
+        float initialVolume = outputVolume * 0.5f;
+        Guid context = Guid.Empty;
+        volume.SetMasterVolume(initialVolume, ref context);
+        log("AUDIO pid=" + pid + " game mixer initialized to " + Percent(initialVolume) +
+            " (Windows output " + Percent(outputVolume) + ")");
+        return true;
+    }
+
+    private static string Percent(float volume)
+    {
+        return volume.ToString("P1", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    internal static bool VisitSessions(uint pid, Action<string, ISimpleAudioVolume, Func<float>> visit)
     {
         var type = Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"), true);
         var enumerator = (IMMDeviceEnumerator)Activator.CreateInstance(type);
@@ -82,7 +96,7 @@ internal static class GameVolume
         }
     }
 
-    private static bool VisitDevice(IMMDevice device, uint pid, Action<string, ISimpleAudioVolume> visit)
+    private static bool VisitDevice(IMMDevice device, uint pid, Action<string, ISimpleAudioVolume, Func<float>> visit)
     {
         Guid iid = typeof(IAudioSessionManager2).GUID;
         object manager;
@@ -108,7 +122,7 @@ internal static class GameVolume
                     if (state == 2 || control.GetProcessId(out owner) != 0 || owner != pid) continue;
                     string identifier;
                     control.GetSessionIdentifier(out identifier);
-                    visit(identifier, (ISimpleAudioVolume)session);
+                    visit(identifier, (ISimpleAudioVolume)session, () => ReadOutputVolume(device));
                     found = true;
                 }
                 finally { Marshal.ReleaseComObject(session); }
@@ -120,6 +134,20 @@ internal static class GameVolume
             if (sessions != null) Marshal.ReleaseComObject(sessions);
             Marshal.ReleaseComObject(manager);
         }
+    }
+
+    private static float ReadOutputVolume(IMMDevice device)
+    {
+        Guid iid = typeof(IAudioEndpointVolume).GUID;
+        object endpointVolume;
+        device.Activate(ref iid, 23, IntPtr.Zero, out endpointVolume);
+        try
+        {
+            float volume;
+            ((IAudioEndpointVolume)endpointVolume).GetMasterVolumeLevelScalar(out volume);
+            return volume;
+        }
+        finally { Marshal.ReleaseComObject(endpointVolume); }
     }
 
     [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -139,6 +167,18 @@ internal static class GameVolume
     private interface IMMDevice
     {
         void Activate(ref Guid iid, uint context, IntPtr parameters, [MarshalAs(UnmanagedType.IUnknown)] out object instance);
+    }
+
+    [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IAudioEndpointVolume
+    {
+        void RegisterControlChangeNotify(IntPtr callback);
+        void UnregisterControlChangeNotify(IntPtr callback);
+        void GetChannelCount(out uint count);
+        void SetMasterVolumeLevel(float levelDb, IntPtr context);
+        void SetMasterVolumeLevelScalar(float level, IntPtr context);
+        void GetMasterVolumeLevel(out float levelDb);
+        void GetMasterVolumeLevelScalar(out float level);
     }
 
     [ComImport, Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
