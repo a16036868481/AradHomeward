@@ -29,10 +29,14 @@
   "windowAndController": {
     "settingsViewAndSaveLanguages": ["zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR"],
     "automatedMappingAndSizeChecksPassed": 27,
-    "nativeViewportSizesObserved": ["960x720", "1280x960"],
-    "nativeMouseClickVerifiedAt": "960x720",
-    "simulatedControllerKeysReceivedByGame": true,
+    "nativeViewportSizesObserved": ["640x480", "800x600", "960x720", "1120x840", "1280x960", "1856x1392 (fit to test screen)"],
+    "nativeMouseClickVerifiedAt": ["960x720", "1280x960"],
+    "controllerReplayInActualGame": ["D-pad movement", "left-stick movement", "release", "inventory", "system menu"],
     "physicalControllerVerified": false
+  },
+  "nativeExit": {
+    "inGameExitClosedGameTrainerAndBackgroundServices": true,
+    "completeSaveBackupObserved": true
   },
   "firstRunAudio": {
     "verifiedWith": "Windows mixer and isolated playback session",

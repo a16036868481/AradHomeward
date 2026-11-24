@@ -226,8 +226,13 @@ internal static class GamepadInput
 
     private static bool SendKey(Keys key, bool release)
     {
-        uint scan = MapVirtualKeyW((uint)key, 4); // MAPVK_VK_TO_VSC_EX
+        uint virtualKey = (uint)key;
+        uint scan = MapVirtualKeyW(virtualKey, 4); // MAPVK_VK_TO_VSC_EX
         if (scan == 0) return false;
+        // Some keyboard layouts return the shared numpad scan code without
+        // its E0 prefix. Mark the separate navigation keys explicitly.
+        bool navigationKey = virtualKey >= (uint)Keys.PageUp && virtualKey <= (uint)Keys.Down;
+        bool extended = navigationKey || scan >> 8 == 0xe0;
         var input = new Input
         {
             Type = 1, // INPUT_KEYBOARD
@@ -236,7 +241,7 @@ internal static class GamepadInput
                 Keyboard = new KeyboardInput
                 {
                     ScanCode = (ushort)(scan & 0xff),
-                    Flags = 8u | (scan >> 8 == 0xe0 ? 1u : 0u) | (release ? 2u : 0u)
+                    Flags = 8u | (extended ? 1u : 0u) | (release ? 2u : 0u)
                 }
             }
         };
