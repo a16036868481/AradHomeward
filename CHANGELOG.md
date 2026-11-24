@@ -1,5 +1,12 @@
 # Changes
 
+## v2.6.0-preview.36 — 2026-11-24
+
+- Added window presets from 640 × 480 to 1280 × 960 and a fit-to-screen setting. The package defaults to 960 × 720.
+- Kept the game's aspect ratio and aligned mouse input with the scaled viewport.
+- Added XInput controller bindings for movement, combat and shoulder-button skill shortcuts. The game releases mapped keys on focus loss, disconnection or exit.
+- Added a settings dialog in all five launcher languages with saved window and controller preferences.
+
 ## v2.6.0-preview.35 — 2026-11-23
 
 - Reduced the first-use game mixer volume to one quarter of the current Windows output volume.

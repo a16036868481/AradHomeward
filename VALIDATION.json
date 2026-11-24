@@ -1,7 +1,7 @@
 {
-  "version": "2.6.0-preview.35",
-  "checkedOn": "2026-11-23",
-  "automatedTestsPassed": 16,
+  "version": "2.6.0-preview.36",
+  "checkedOn": "2026-11-24",
+  "automatedTestsPassed": 40,
   "startupDiagnosticChecksPassed": 7,
   "languagePackHashesVerified": [
     "zh-Hans",
@@ -25,6 +25,14 @@
       "local account hosted a LAN room and reached channel selection",
       "guest without a local profile could open and cancel the join dialog"
     ]
+  },
+  "windowAndController": {
+    "settingsViewAndSaveLanguages": ["zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR"],
+    "automatedMappingAndSizeChecksPassed": 27,
+    "nativeViewportSizesObserved": ["960x720", "1280x960"],
+    "nativeMouseClickVerifiedAt": "960x720",
+    "simulatedControllerKeysReceivedByGame": true,
+    "physicalControllerVerified": false
   },
   "firstRunAudio": {
     "verifiedWith": "Windows mixer and isolated playback session",

@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Extract the whole `AradHomeward-v2.6.0-preview.35-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
+Extract the whole `AradHomeward-v2.6.0-preview.36-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
 
 Keep the extracted files and folders together. The package requires Windows 10 or 11 x64.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.35-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.36-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Choose a mode and create a local account
 
@@ -23,6 +23,12 @@ When you first choose **Single-player**, enter an account name and select **Save
 The local server creates the internal credentials automatically. Keep the extraction folder to preserve your saves.
 
 ## 3. Choose a language and start playing
+
+Open **Display & controller** at the bottom right of the launcher to change window size or controller bindings. The default window size is 960 × 720. Other choices are 640 × 480, 800 × 600, 1120 × 840, 1280 × 960 and **Fit to screen**. The game keeps a 4:3 aspect ratio.
+
+On an Xbox or other XInput controller, use the left stick or D-pad to move, **X** to attack, **A** to jump and **Y** to use a skill. Hold **LB**, **RB** or both while pressing a face button to use more shortcuts. Save your choices and start the game to apply them.
+
+![Window size and controller bindings](images/display-controller-en-US.png)
 
 Choose a saved account and select **Play solo**. The launcher remembers your selection. Use **New account** to create another local account.
 

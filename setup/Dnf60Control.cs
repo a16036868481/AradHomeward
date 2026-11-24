@@ -19,8 +19,8 @@ using Dnf60Lifecycle;
 [assembly: System.Reflection.AssemblyTitle("阿拉德·归途 · 会话服务")]
 [assembly: System.Reflection.AssemblyCompany("eirros")]
 [assembly: System.Reflection.AssemblyCopyright("Copyright (c) 2026 eirros. All rights reserved.")]
-[assembly: System.Reflection.AssemblyVersion("2.6.0.35")]
-[assembly: System.Reflection.AssemblyFileVersion("2.6.0.35")]
+[assembly: System.Reflection.AssemblyVersion("2.6.0.36")]
+[assembly: System.Reflection.AssemblyFileVersion("2.6.0.36")]
 
 internal static partial class Dnf60Control
 {
@@ -54,7 +54,7 @@ internal static partial class Dnf60Control
         }
         string action = args[0].TrimStart('-').ToLowerInvariant();
 #endif
-        if(action=="game-volume")
+        if(action=="game-volume"||action=="game-session")
         {
             int pid;
             if(args.Length!=2||!Int32.TryParse(args[1],out pid)||pid<=0)return 1;
@@ -62,11 +62,22 @@ internal static partial class Dnf60Control
             {
                 using(var game=Process.GetProcessById(pid))
                     if(!game.HasExited&&ClientExitMonitor.IsInstalledClient(game.MainModule.FileName,Client))
-                        GameVolume.Monitor(game,Root,Log);
+                    {
+                        if(action=="game-volume")GameVolume.Monitor(game,Root,Log);
+                        else MonitorGameSession(game);
+                    }
             }
             catch(ArgumentException){}
             catch(InvalidOperationException){}
-            catch(System.ComponentModel.Win32Exception error){Log("AUDIO game process unavailable: "+error.NativeErrorCode);}
+            catch(System.ComponentModel.Win32Exception error){Log("SESSION game process unavailable: "+error.NativeErrorCode);}
+            return 0;
+        }
+        if(action=="play-settings")
+        {
+            LanguageSupport.Load(Root);
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            using(var options=new GamePlayOptions(Root))options.ShowDialog();
             return 0;
         }
         if(action=="lan-room")
@@ -369,12 +380,41 @@ internal static partial class Dnf60Control
         try
         {
             Log("START "+file+" pid="+game.Id);
-            try { using(Launch(Path.Combine(Root,InstallPrograms.Controller),"--game-volume "+game.Id,Root,true)){} }
-            catch(System.ComponentModel.Win32Exception error){Log("AUDIO mixer monitor could not start: "+error.NativeErrorCode);}
+            try { using(Launch(Path.Combine(Root,InstallPrograms.Controller),"--game-session "+game.Id,Root,true)){} }
+            catch(System.ComponentModel.Win32Exception error){Log("SESSION game monitor could not start: "+error.NativeErrorCode);}
             if(game.WaitForExit(1600)&&!HasGameClient())throw new InvalidOperationException("游戏启动后提前退出（退出码 0x"+unchecked((uint)game.ExitCode).ToString("X8")+"），请运行启动检查后将结果发回排查。");
             return game;
         }
         catch{game.Dispose();throw;}
+    }
+
+    private static void MonitorGameSession(Process game)
+    {
+        var settings=GamePlaySettings.Load(Root);
+        int pid=game.Id;
+        var monitors=new List<Task>
+        {
+            Task.Run(()=>RunGameMonitor(pid,"AUDIO",target=>GameVolume.Monitor(target,Root,Log)))
+        };
+        if(settings.WindowScale!=100)
+            monitors.Add(Task.Run(()=>RunGameMonitor(pid,"DISPLAY",target=>GameWindow.Monitor(target,settings.WindowScale,Log))));
+        if(settings.GamepadEnabled)
+            monitors.Add(Task.Run(()=>RunGameMonitor(pid,"INPUT",target=>GamepadInput.Monitor(target,settings,Log))));
+        Task.WaitAll(monitors.ToArray());
+    }
+
+    private static void RunGameMonitor(int pid,string name,Action<Process> monitor)
+    {
+        try
+        {
+            using(var game=Process.GetProcessById(pid))
+                if(!game.HasExited&&ClientExitMonitor.IsInstalledClient(game.MainModule.FileName,Client))monitor(game);
+        }
+        catch(ArgumentException){}
+        catch(InvalidOperationException){}
+        catch(System.ComponentModel.Win32Exception error){Log(name+" process unavailable: "+error.NativeErrorCode);}
+        catch(DllNotFoundException){Log(name+" Windows component unavailable");}
+        catch(EntryPointNotFoundException){Log(name+" Windows function unavailable");}
     }
 
     internal static string GameArguments(string account,string secret)
@@ -389,8 +429,10 @@ internal static partial class Dnf60Control
 
     private static void EnsureLocalIdentity()
     {
+#if PORTABLE
         string python=Path.Combine(Path.GetDirectoryName(PythonRuntime()),"python.exe");
         InstallPrograms.EnsureLocalIdentity(Root, python);
+#endif
     }
 
     private static void StartServices()

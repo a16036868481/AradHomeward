@@ -6,7 +6,7 @@ A portable Windows ACT12 / level-60 local game package with a name-only account 
 
 **[Windows releases](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-`AradHomeward-v2.6.0-preview.35-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
+`AradHomeward-v2.6.0-preview.36-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
 
 Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 
@@ -36,7 +36,9 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 
 ## Current release status
 
-**v2.6.0-preview.35** sets the first-use game mixer to one quarter of the current Windows output volume. The launcher opens with a choice of **Single-player** or **Multiplayer**. After a LAN disconnect, **Rejoin room** opens with the previous invitation and player name.
+**v2.6.0-preview.36** adds **Display & controller** to the launcher. The game starts at 960 × 720 in windowed mode. Choose the original size, a larger preset or **Fit to screen**. Xbox and other XInput controllers support movement, combat and configurable skill shortcuts. Saved settings apply the next time the game starts.
+
+The first-use game mixer remains one quarter of the current Windows output volume. After a LAN disconnect, **Rejoin room** opens with the previous invitation and player name.
 
 Language changes apply to the **next game launch**. Some original game text and voices remain. [Release changes](CHANGELOG.md) · [Troubleshooting](docs/USAGE.en.md#troubleshooting)
 

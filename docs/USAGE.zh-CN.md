@@ -4,11 +4,11 @@
 
 ## 1. 下载并完整解压
 
-将 `AradHomeward-v2.6.0-preview.35-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
+将 `AradHomeward-v2.6.0-preview.36-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
 
 解压后的程序和数据文件夹请一起保留。本包需要 Windows 10/11 64 位。
 
-需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.35-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
+需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.36-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
 
 ## 2. 选择模式与新建账号
 
@@ -23,6 +23,12 @@
 名称用于区分本地存档，内部登录凭据由程序自动创建。首次启动还会在这台电脑生成独立的本地登录证书。请保留完整的解压目录以便继续游玩。
 
 ## 3. 选择语言并开始游戏
+
+点启动器右下角的「显示与手柄」可以更改窗口尺寸和手柄键位。默认窗口为 960 × 720，也可选 640 × 480、800 × 600、1120 × 840、1280 × 960 或「自适应屏幕」。游戏画面保持 4:3 比例。
+
+Xbox 和其他 XInput 手柄可用左摇杆或十字键移动，按 **X** 普攻、**A** 跳跃、**Y** 施放技能。按住 **LB**、**RB** 或两个肩键，再按面键可使用更多快捷技能。保存后启动游戏，设置即会生效。
+
+![窗口大小与手柄键位设置](images/display-controller-zh-Hans.png)
 
 选中保存的账号，再点“开始单人游戏”。下次打开会记住你的选择。需要另开存档时，点“新建本地账号”。
 

@@ -26,6 +26,14 @@ The release includes `a12_profiles.dll` for the original account launcher. To re
 
 This runtime is tied to the bundled ACT12 binary layout. Replacing the client, changing hook addresses or mixing unrelated NPK patches requires a new compatibility review. Do not silently refresh hashes for unreviewed files. Rebuild the release resource manifest and validate all five language selections after runtime changes.
 
+The x86 runtime also maps the cursor to the scaled game viewport. To install the rebuilt runtime and refresh its hash, supply the DLL to the portable build.
+
+该 x86 组件同时负责放大窗口后的鼠标坐标转换。用下面的命令将重新编译的 DLL 放入完整包，并刷新对应的校验值。
+
+```powershell
+.\build.ps1 -InstallRoot 'D:\Games\AradHomeward' -ClientRuntime '.\setup\localization\a12_live_score.dll'
+```
+
 To rebuild the preview.26 resource changes against a clean preview.25 staging copy, use a Python environment with Pillow. Run `setup/localization/repair_text_packs.py <app> setup/localization/locale_text_repairs.json`, then run `localize_popup_captions.py <app>` and `localize_class_captions.py <app>` from that directory. The sprite generators read the bundled base archives and verify the previous language variants before adding captions. Refresh the runtime hashes for the resulting resource files as part of packaging.
 
 ## Layout

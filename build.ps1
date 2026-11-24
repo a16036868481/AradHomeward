@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$InstallRoot)
+param([Parameter(Mandatory=$true)][string]$InstallRoot,[string]$ClientRuntime)
 $ErrorActionPreference='Stop'
 $taskInstall=[IO.Path]::GetFullPath($InstallRoot)
 $taskCompiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
@@ -8,7 +8,7 @@ if(!(Test-Path -LiteralPath (Join-Path $taskInstall 'DNF60_ACT12\ACT12\LegacyLau
 $taskCommon=@('/nologo','/target:winexe','/platform:anycpu','/define:PORTABLE',"/win32icon:$taskIcon","/win32manifest:$taskManifest",'/reference:System.Windows.Forms.dll','/reference:System.Drawing.dll','/reference:System.Web.Extensions.dll')
 $taskPortable=Join-Path $PSScriptRoot 'setup\portable'
 $taskProgramPaths=Join-Path $taskPortable 'InstallPrograms.cs'
-$taskSources=@('Dnf60Control.cs','ClientExitMonitor.cs','LocalAccountWindow.cs','ControlLocks.cs','LauncherStartupMonitor.cs','LauncherMode.cs','LanguageSupport.cs','LanSession.cs','LanRoomWindow.cs','LanRoomText.cs','GameVolume.cs') | ForEach-Object {Join-Path $PSScriptRoot "setup\$_"}
+$taskSources=@('Dnf60Control.cs','ClientExitMonitor.cs','LocalAccountWindow.cs','ControlLocks.cs','LauncherStartupMonitor.cs','LauncherMode.cs','LanguageSupport.cs','LanSession.cs','LanRoomWindow.cs','LanRoomText.cs','GameVolume.cs','GamePlaySettings.cs','GamePlayOptions.cs','GamepadInput.cs','GameWindow.cs') | ForEach-Object {Join-Path $PSScriptRoot "setup\$_"}
 $taskSources+=Join-Path $taskPortable 'RelayPortPreflight.cs'
 & $taskCompiler @taskCommon "/out:$taskInstall\AradHomeward.exe" @taskSources $taskProgramPaths
 if($LASTEXITCODE-ne 0){throw 'Controller compilation failed.'}
@@ -20,6 +20,9 @@ if($LASTEXITCODE-ne 0){throw 'Trainer compilation failed.'}
 Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'trainer') -File -Filter '*.py' | Copy-Item -Destination (Join-Path $taskInstall 'trainer')
 & $taskCompiler @taskCommon "/out:$taskInstall\CheckStartup.exe" "/resource:$taskPortable\startup_probe.py,startup_probe.py" (Join-Path $taskPortable 'StartupDiagnostics.cs') $taskProgramPaths
 if($LASTEXITCODE-ne 0){throw 'Diagnostics compilation failed.'}
+if($ClientRuntime){
+    Copy-Item -LiteralPath $ClientRuntime -Destination (Join-Path $taskInstall 'DNF60_ACT12\ACT12\a12_live_score.dll')
+}
 $taskManifestPath=Join-Path $taskInstall 'localization\manifest.json'
 $taskData=Get-Content -LiteralPath $taskManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 foreach($taskFile in @('阿拉德·归途.exe','备用关闭.exe','归途修改器.exe','DNF60控制台.exe','启动检查.exe','DNF60_ACT12/ACT12/开始游戏.exe')){
