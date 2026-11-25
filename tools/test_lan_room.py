@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'trainer'))
 import lan_guest
+import lan_network
 import lan_room
 from lan_room import RoomError, close_writer
 from local_profiles import ProfileStore
@@ -45,6 +46,15 @@ class UdpProbe(asyncio.DatagramProtocol):
     def datagram_received(self, data, _address):
         if not self.result.done():
             self.result.set_result(data)
+
+
+def loopback_route(interface, address):
+    if sys.platform != 'win32':
+        return address.is_loopback
+    # Only 127.0.0.1 is enumerated as a source by Windows route queries.
+    # The socket still binds the distinct guest or host address in the test.
+    adapter = lan_network.RoomInterface(interface.index, IPv4Address('127.0.0.1'), interface.virtual)
+    return lan_network.has_room_route(adapter, address)
 
 
 class GuestAccountTests(unittest.TestCase):
@@ -102,7 +112,7 @@ class GuestAccountTests(unittest.TestCase):
 
 
 class LanRoomTests(unittest.IsolatedAsyncioTestCase):
-    async def open_room(self, resources):
+    async def open_room(self, resources, *, extra_addresses=()):
         loop = asyncio.get_running_loop()
         root = Path(resources.enter_context(TemporaryDirectory()))
         game = root / 'DNF60_ACT12' / 'ACT12' / 'DNF.exe'
@@ -113,7 +123,20 @@ class LanRoomTests(unittest.IsolatedAsyncioTestCase):
         udp_back, _ = await loop.create_datagram_endpoint(UdpEcho, local_addr=('127.0.0.4', 0))
         resources.callback(udp_back.close)
         udp_port = udp_back.get_extra_info('sockname')[1]
-        resources.enter_context(patch.object(lan_room, 'private_address', return_value=IPv4Address('127.0.0.1')))
+        # Substitute loopback for LAN adapter addresses. Windows still chooses
+        # the route and binds every real TCP and UDP test socket.
+        for module, attribute in ((lan_room, 'is_room_address'), (lan_network, 'is_room_address'),
+                                  (lan_network, 'is_lan_address')):
+            original = getattr(module, attribute)
+            resources.enter_context(patch.object(module, attribute,
+                side_effect=lambda address, original=original: address.is_loopback or original(address)))
+        for module in (lan_room, lan_guest):
+            resources.enter_context(patch.object(module, 'has_room_route', side_effect=loopback_route))
+        hosts = (lan_network.RoomInterface(1, IPv4Address('127.0.0.1'), False),) + tuple(
+            lan_network.RoomInterface(1, IPv4Address(address), True) for address in extra_addresses)
+        client = lan_network.RoomInterface(1, IPv4Address('127.0.0.3'), False)
+        resources.enter_context(patch.object(lan_room, 'room_interfaces', return_value=hosts))
+        resources.enter_context(patch.object(lan_guest, 'room_interfaces', return_value=(client,)))
         resources.enter_context(patch.object(lan_room, 'LOOPBACK', '127.0.0.4'))
         resources.enter_context(patch.object(lan_room, 'GAME_PORT', tcp_port))
         resources.enter_context(patch.object(lan_guest, 'GAME_PORT', tcp_port))
@@ -122,7 +145,7 @@ class LanRoomTests(unittest.IsolatedAsyncioTestCase):
         room = lan_room.RoomHost(store)
         resources.enter_context(patch.object(room, 'endpoints', return_value=({tcp_port}, {udp_port})))
         resources.push_async_callback(room.close)
-        await room.open({'address': '127.0.0.1', 'mask': '255.0.0.0'})
+        await room.open()
         return room, tcp_port, udp_port, credentials
 
     async def test_join_and_close_room(self):
@@ -246,11 +269,112 @@ class LanRoomTests(unittest.IsolatedAsyncioTestCase):
             await room.close()
             self.assertEqual(await asyncio.wait_for(reader.read(1), 2), b'')
 
-    def test_invites_require_private_numeric_addresses(self):
-        for address in ('8.8.8.8', 'localhost', '127.0.0.1', '0.0.0.0'):
+    def test_invites_validate_numeric_addresses_and_support_old_links(self):
+        for address in ('localhost', '127.0.0.1', '0.0.0.0', '255.255.255.255', '224.0.0.1', '192.168.01.4'):
             invite = f'arad://{address}:26060/{"a"*43}.{"0"*64}'
             with self.subTest(address=address), self.assertRaises(RoomError):
                 lan_room.parse_invitation(invite)
+        old = f'arad://192.168.10.7:26060/{"a"*43}.{"0"*64}'
+        self.assertEqual(lan_room.parse_invitation(old)[0], ((IPv4Address('192.168.10.7'), 26060),))
+        overlay_addresses = '26.73.14.21,25.24.7.8,100.83.15.12,10.73.39.15'
+        actual = lan_room.parse_invitation(old + '?via=' + overlay_addresses)[0]
+        self.assertEqual([str(address) for address, _port in actual], ['192.168.10.7', *overlay_addresses.split(',')])
+        for suffix in ('?via=0.0.0.0', '?via=localhost', '?via=' + ','.join(['10.0.0.3'] * 16)):
+            with self.subTest(suffix=suffix), self.assertRaises(RoomError):
+                lan_room.parse_invitation(old + suffix)
+
+    async def test_public_invitation_cannot_use_ordinary_internet_interface(self):
+        with patch.object(lan_room, 'room_interfaces', return_value=()):
+            room = lan_room.RoomHost(None)
+            with self.assertRaisesRegex(RoomError, 'lan_invalid_address'):
+                await room.open()
+            self.assertFalse(room.status()['open'])
+
+        adapter = lan_network.RoomInterface(5, IPv4Address('192.168.1.7'), False)
+        with (patch.object(lan_guest, 'room_interfaces', return_value=(adapter,)),
+              patch.object(asyncio.get_running_loop(), 'sock_connect') as dial):
+            for address in ('8.8.8.8', '26.73.14.21', '25.24.7.8'):
+                invite = f'arad://{address}:26060/{"a"*43}.{"0"*64}'
+                guest = lan_guest.GuestConnection(Path('.'), invite)
+                with self.assertRaisesRegex(RoomError, 'lan_no_shared_network'):
+                    await guest.exchange('join')
+            dial.assert_not_called()
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Windows interface-bound sockets')
+    async def test_same_invitation_works_from_ethernet_and_virtual_routes(self):
+        async with AsyncExitStack() as resources:
+            room, tcp_port, udp_port, credentials = await self.open_room(resources, extra_addresses=('127.0.0.8',))
+            root, invitation = room.profiles.root, room.invite
+            addresses = tuple(room.listeners)
+            self.assertEqual([str(address) for address in addresses], ['127.0.0.1', '127.0.0.8'])
+            self.assertIn('?via=127.0.0.8', invitation)
+            adapter = lan_network.RoomInterface(1, IPv4Address('127.0.0.9'), True)
+            with patch.object(lan_guest, 'has_room_route',
+                              side_effect=lambda nic, address: address == addresses[0] and loopback_route(nic, address)):
+                lan_guest_client = lan_guest.GuestConnection(root, invitation)
+                resources.push_async_callback(lan_guest_client.close)
+                first = await lan_guest_client.join('Guest')
+                self.assertEqual(lan_guest_client.control_writer.get_extra_info('peername')[0], str(addresses[0]))
+                await lan_guest_client.close()
+            resources.enter_context(patch.object(lan_guest, 'room_interfaces', return_value=(adapter,)))
+            resources.enter_context(patch.object(lan_guest, 'has_room_route',
+                side_effect=lambda nic, address: address == addresses[1] and loopback_route(nic, address)))
+            guest = lan_guest.GuestConnection(root, invitation)
+            resources.push_async_callback(guest.close)
+            self.assertEqual(await guest.join('Guest'), first)
+            self.assertEqual(guest.control_writer.get_extra_info('peername')[0], str(addresses[1]))
+            self.assertEqual(guest.control_writer.get_extra_info('sockname')[0], '127.0.0.9')
+            reader, writer = await asyncio.open_connection('127.0.0.1', tcp_port)
+            resources.push_async_callback(close_writer, writer)
+            writer.write(b'party')
+            await writer.drain()
+            self.assertEqual(await asyncio.wait_for(reader.readexactly(5), 4), b'party')
+
+            loop = asyncio.get_running_loop()
+            seen = loop.create_future()
+            transport, _ = await loop.create_datagram_endpoint(
+                lambda: UdpProbe(seen), remote_addr=('127.0.0.1', udp_port))
+            resources.callback(transport.close)
+            self.assertEqual(await asyncio.wait_for(seen, 4), b'game datagram')
+
+            await guest.close()
+            await asyncio.wait_for(reader.read(), 4)
+            self.assertEqual(room.status()['guests'], 0)
+            returned = lan_guest.GuestConnection(root, invitation)
+            resources.push_async_callback(returned.close)
+            self.assertEqual(await returned.join('Guest'), first)
+            self.assertEqual(credentials.call_args_list, [credentials.call_args_list[0]] * 3)
+
+    async def test_parallel_invite_does_not_send_credentials_to_a_wrong_peer(self):
+        async with AsyncExitStack() as resources:
+            room, _, _, credentials = await self.open_room(resources, extra_addresses=('127.0.0.8',))
+            wrong = IPv4Address('127.0.0.5')
+            ctx, _ = lan_room.server_context((wrong,))
+            connections = []
+
+            async def receive_secret(reader, writer):
+                try:
+                    connections.append(await reader.read(100))
+                finally:
+                    await close_writer(writer)
+
+            port = next(iter(room.listeners.values())).sockets[0].getsockname()[1]
+            await resources.enter_async_context(await asyncio.start_server(receive_secret, str(wrong), port, ssl=ctx))
+            invite = room.invite.replace('arad://127.0.0.1:', f'arad://{wrong}:')
+            guest = lan_guest.GuestConnection(room.profiles.root, invite)
+            resources.push_async_callback(guest.close)
+            connect_path = guest.connect_path
+
+            async def let_wrong_peer_answer_first(path):
+                if path[0][0] != wrong:
+                    await asyncio.sleep(.15)
+                return await connect_path(path)
+
+            with patch.object(guest, 'connect_path', side_effect=let_wrong_peer_answer_first):
+                await guest.join('Guest')
+            self.assertEqual(guest.control_writer.get_extra_info('peername')[0], '127.0.0.8')
+            self.assertEqual(credentials.call_count, 1)
+            self.assertEqual(connections, [b''])
 
 
 if __name__ == '__main__':

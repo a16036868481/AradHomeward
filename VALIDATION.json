@@ -1,7 +1,7 @@
 {
-  "version": "2.6.0-preview.37",
+  "version": "2.6.0-preview.38",
   "checkedOn": "2026-11-25",
-  "automatedTestsPassed": 14,
+  "automatedTestsPassed": 17,
   "startupDiagnosticChecksPassed": 7,
   "languagePackHashesVerified": [
     "zh-Hans",
@@ -61,6 +61,9 @@
   },
   "localLanTransport": {
     "testEnvironment": "one Windows computer",
+    "automaticInvitation": "One Ethernet route and two simulated virtual routes used the same invitation",
+    "guestVerifiedRoomIdentityBeforeSignIn": true,
+    "crossInternetVpnPeersTested": false,
     "realServerAndSeparateGuestConnection": true,
     "guestJoinedReconnectedAndLoadedSavedProgress": true,
     "oldGuestAccountRecoveredAfterUpgrade": true,

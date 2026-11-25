@@ -403,7 +403,7 @@ internal sealed class LocalAccountWindow : Form
         string id=Value(profiles[accounts.SelectedIndex],"id");
         await Work(hosting?"lan-host":"account-login",async()=>
         {
-            if(hosting)await Dnf60Control.StartAccountGame(id,SetStatus,ParentAlive,LanRoomWindow.PreferredNetwork());
+            if(hosting)await Dnf60Control.StartAccountGame(id,SetStatus,ParentAlive,true);
             else await launch(id,SetStatus,ParentAlive);
             FinishLaunch();
         });

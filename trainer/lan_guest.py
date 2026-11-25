@@ -10,10 +10,13 @@ import hmac
 import json
 from pathlib import Path
 import secrets
+import socket
 import ssl
+import struct
 import sys
 
 from bridge import forward_until_closed
+from lan_network import IP_UNICAST_IF, has_room_route, room_interfaces
 from lan_room import (
     GAME_PORT, HANDSHAKE_TIMEOUT, HEARTBEAT_INTERVAL, HEARTBEAT_PING, HEARTBEAT_PONG,
     HEARTBEAT_TIMEOUT, HELLO_LIMIT, LOOPBACK, PROTOCOL, DatagramQueue,
@@ -80,7 +83,8 @@ class GuestDatagrams(asyncio.DatagramProtocol):
 class GuestConnection:
     def __init__(self, root, invite):
         self.root = root
-        self.endpoint, self.invite_key, self.pin = parse_invitation(invite)
+        self.endpoints, self.invite_key, self.pin = parse_invitation(invite)
+        self.room_path = None
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self.context.minimum_version = ssl.TLSVersion.TLSv1_2
         # The invitation pins this room's ephemeral certificate before sending credentials.
@@ -92,15 +96,80 @@ class GuestConnection:
         self.tcp_listeners, self.udp_listeners, self.tasks = [], [], set()
         self.tcp_writers = set()
 
+    async def connect(self):
+        if self.room_path is not None:
+            _, reader, writer = await self.connect_path(self.room_path)
+            return reader, writer
+
+        paths = await asyncio.to_thread(self.available_paths)
+        if not paths:
+            raise RoomError('lan_no_shared_network')
+        attempts = [asyncio.create_task(self.connect_path(path)) for path in paths]
+        selected = None
+        error = 'lan_unreachable'
+        try:
+            for attempt in asyncio.as_completed(attempts):
+                try:
+                    selected = await attempt
+                    break
+                except RoomError as failure:
+                    error = str(failure)
+                except (OSError, EOFError):
+                    continue
+            if selected is None:
+                raise RoomError(error)
+        finally:
+            for task in attempts:
+                if not task.done():
+                    task.cancel()
+            try:
+                results = await asyncio.gather(*attempts, return_exceptions=True)
+                await asyncio.gather(*(close_writer(result[2]) for result in results
+                                       if isinstance(result, tuple) and result is not selected))
+            except BaseException:
+                if selected is not None:
+                    selected[2].close()
+                raise
+        self.room_path, reader, writer = selected
+        return reader, writer
+
+    def available_paths(self):
+        interfaces = room_interfaces()
+        return [((address, port), interface)
+                for address, port in self.endpoints for interface in interfaces
+                if has_room_route(interface, address)]
+
+    async def connect_path(self, path):
+        (address, port), interface = path
+        if not has_room_route(interface, address):
+            raise RoomError('lan_no_shared_network')
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        writer = None
+        try:
+            async with asyncio.timeout(HANDSHAKE_TIMEOUT):
+                if sys.platform == 'win32':
+                    client.setsockopt(socket.IPPROTO_IP, IP_UNICAST_IF, struct.pack('!I', interface.index))
+                client.bind((str(interface.address), 0))
+                client.setblocking(False)
+                await asyncio.get_running_loop().sock_connect(client, (str(address), port))
+                reader, writer = await asyncio.open_connection(
+                    sock=client, ssl=self.context, server_hostname=str(address), ssl_shutdown_timeout=1)
+                cert = writer.get_extra_info('ssl_object').getpeercert(binary_form=True)
+                if not hmac.compare_digest(hashlib.sha256(cert).hexdigest(), self.pin):
+                    raise RoomError('lan_certificate_changed')
+                return path, reader, writer
+        except BaseException:
+            if writer is None:
+                client.close()
+            else:
+                await close_writer(writer)
+            raise
+
     async def exchange(self, operation, **fields):
         writer = None
         try:
             async with asyncio.timeout(HANDSHAKE_TIMEOUT + 4):
-                reader, writer = await asyncio.open_connection(*self.endpoint, ssl=self.context,
-                                                               ssl_shutdown_timeout=1)
-                cert = writer.get_extra_info('ssl_object').getpeercert(binary_form=True)
-                if not hmac.compare_digest(hashlib.sha256(cert).hexdigest(), self.pin):
-                    raise RoomError('lan_certificate_changed')
+                reader, writer = await self.connect()
                 request = {'v': PROTOCOL, 'op': operation, 'ticket': self.ticket, **fields}
                 await write_message(writer, request)
                 reply = await read_message(reader)

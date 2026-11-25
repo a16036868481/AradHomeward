@@ -4,11 +4,11 @@
 
 ## 1. 下载并完整解压
 
-将 `AradHomeward-v2.6.0-preview.37-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
+将 `AradHomeward-v2.6.0-preview.38-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
 
 解压后的程序和数据文件夹请一起保留。本包需要 Windows 10/11 64 位。
 
-需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.37-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
+需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.38-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
 
 ## 2. 选择模式与新建账号
 
@@ -46,7 +46,7 @@ Xbox 和其他 XInput 手柄可用左摇杆或十字键移动，按 **X** 普攻
 2. 朋友进入「多人模式 → 加入房间」，粘贴邀请、填写玩家名称，再点「连接房间并进入游戏」。
 3. 双方进入相同频道，来宾的角色和进度保存在房主电脑上。
 
-房间窗口会显示房间地址和来宾人数，并提供「复制邀请」和「关闭房间」。两台电脑使用同一联机版本，并接入同一局域网。[局域网说明](LAN.md)
+两台电脑使用同一版本，并加入同一个局域网或 Radmin VPN 等虚拟局域网。房间窗口显示来宾人数。房主复制一条邀请即可，游戏会自动选择可用连接。[局域网说明](LAN.md)
 
 ## 5. 游戏与修改器
 

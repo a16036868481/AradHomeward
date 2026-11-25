@@ -7,7 +7,7 @@ from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
-from ipaddress import IPv4Address, IPv4Interface, IPv4Network
+from ipaddress import IPv4Address
 import json
 from pathlib import Path
 import re
@@ -24,6 +24,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
 from bridge import Session, forward_until_closed, installed_server_endpoints
+from lan_network import MAX_ROOM_ADDRESSES, has_room_route, is_room_address, room_interfaces
 from local_profiles import account_name, authenticate_local, password_hash
 from relay_config import endpoints
 
@@ -37,10 +38,10 @@ HEARTBEAT_PING = b'P'
 HEARTBEAT_PONG = b'A'
 GAME_PORT = 7001
 LOOPBACK = '127.0.0.1'
-PRIVATE_NETWORKS = tuple(IPv4Network(network) for network in (
-    '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16',
-))
-INVITE_PATTERN = re.compile(r'arad://([0-9.]+):([0-9]{1,5})/([a-zA-Z0-9_-]{43})\.([0-9a-f]{64})')
+INVITE_PATTERN = re.compile(
+    r'arad://([0-9.]{7,15}):([0-9]{1,5})/([a-zA-Z0-9_-]{43})\.([0-9a-f]{64})'
+    r'(?:\?via=([0-9.,]+))?'
+)
 PLAYER_KEY_PATTERN = re.compile(r'[0-9a-f]{64}')
 ADMIN_PORTS = {8080, 8787, 9999}
 
@@ -49,25 +50,22 @@ class RoomError(ValueError):
     pass
 
 
-def private_address(raw):
-    try:
-        address = IPv4Address(raw)
-    except ValueError:
-        raise RoomError('lan_invalid_address') from None
-    if not any(address in network for network in PRIVATE_NETWORKS):
-        raise RoomError('lan_invalid_address')
-    return address
-
-
 def parse_invitation(value):
-    match = INVITE_PATTERN.fullmatch(value.strip()) if isinstance(value, str) else None
+    match = INVITE_PATTERN.fullmatch(value.strip()) if isinstance(value, str) and len(value) <= 512 else None
     if not match:
         raise RoomError('lan_invalid_invite')
-    host, port, invitation, pin = match.groups()
-    host = private_address(host)
-    if not 1 <= int(port) <= 65535:
+    host, raw_port, invitation, pin, alternatives = match.groups()
+    port = int(raw_port)
+    candidates = [host, *alternatives.split(',')] if alternatives else [host]
+    if not 1 <= port <= 65535 or len(candidates) > MAX_ROOM_ADDRESSES:
         raise RoomError('lan_invalid_invite')
-    return (str(host), int(port)), invitation, pin
+    try:
+        addresses = tuple(dict.fromkeys(IPv4Address(candidate) for candidate in candidates))
+    except ValueError:
+        raise RoomError('lan_invalid_invite') from None
+    if not all(is_room_address(address) for address in addresses):
+        raise RoomError('lan_invalid_invite')
+    return tuple((address, port) for address in addresses), invitation, pin
 
 
 async def read_message(reader):
@@ -127,14 +125,14 @@ async def receive_datagrams(reader, deliver):
         deliver(await reader.readexactly(size))
 
 
-def server_context(address):
+def server_context(addresses):
     key = ec.generate_private_key(ec.SECP256R1())
     owner = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'Arad Homeward LAN')])
     now = datetime.now(timezone.utc)
     cert = (x509.CertificateBuilder().subject_name(owner).issuer_name(owner)
             .public_key(key.public_key()).serial_number(x509.random_serial_number())
             .not_valid_before(now - timedelta(minutes=5)).not_valid_after(now + timedelta(days=7))
-            .add_extension(x509.SubjectAlternativeName([x509.IPAddress(address)]), critical=False)
+            .add_extension(x509.SubjectAlternativeName([x509.IPAddress(address) for address in addresses]), critical=False)
             .sign(key, hashes.SHA256()))
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -220,64 +218,81 @@ class RoomHost:
     def __init__(self, profiles):
         self.profiles = profiles
         self.change = asyncio.Lock()
-        self.listener = None
-        self.network = None
+        self.listeners = {}
+        self.interfaces = {}
         self.invite = self.invitation_key = self.build = ''
         self.guests = {}
         self.claimed = set()
         self.connections = {}
 
     def status(self):
-        return {'open': self.listener is not None, 'invite': self.invite, 'guests': len(self.guests)}
+        return {'open': bool(self.listeners), 'invite': self.invite, 'guests': len(self.guests)}
 
     def endpoints(self):
         tcp, udp = installed_server_endpoints()
         _, configured_udp = endpoints(self.profiles.database.parent)
         return tcp - ADMIN_PORTS, (udp & configured_udp) - ADMIN_PORTS
 
-    async def open(self, request):
+    async def open(self, _request=None):
         async with self.change:
-            if self.listener:
+            if self.listeners:
                 return self.status()
-            address = private_address(request.get('address'))
-            try:
-                interface = IPv4Interface((address, request.get('mask')))
-            except (ValueError, TypeError):
-                raise RoomError('lan_invalid_address') from None
-            if interface.network.prefixlen < 8:
+            interfaces = {}
+            for interface in await asyncio.to_thread(room_interfaces):
+                interfaces.setdefault(interface.address, []).append(interface)
+            addresses = tuple(interfaces)[:MAX_ROOM_ADDRESSES]
+            if not addresses:
                 raise RoomError('lan_invalid_address')
             if GAME_PORT not in self.endpoints()[0]:
                 raise RoomError('lan_game_required')
-            context, pin = await asyncio.to_thread(server_context, address)
+            context, pin = await asyncio.to_thread(server_context, addresses)
             self.build = await asyncio.to_thread(client_build, self.profiles.root)
-            self.network = interface.network
-            self.invitation_key = secrets.token_urlsafe(32)
+            listeners, port = {}, 0
             try:
-                self.listener = await asyncio.start_server(
-                    self.accept, str(address), 0, family=socket.AF_INET, ssl=context,
-                    ssl_handshake_timeout=HANDSHAKE_TIMEOUT, ssl_shutdown_timeout=1)
-            except OSError:
-                raise RoomError('lan_open_failed') from None
-            port = self.listener.sockets[0].getsockname()[1]
-            self.invite = f'arad://{address}:{port}/{self.invitation_key}.{pin}'
+                for address in addresses:
+                    try:
+                        listener = await asyncio.start_server(
+                            self.accept, str(address), port, family=socket.AF_INET, ssl=context,
+                            ssl_handshake_timeout=HANDSHAKE_TIMEOUT, ssl_shutdown_timeout=1)
+                    except OSError:
+                        continue
+                    listeners[address] = listener
+                    port = listener.sockets[0].getsockname()[1]
+                if not listeners:
+                    raise RoomError('lan_open_failed')
+            except BaseException:
+                for listener in listeners.values():
+                    listener.close()
+                await asyncio.gather(*(listener.wait_closed() for listener in listeners.values()))
+                raise
+            self.listeners = listeners
+            self.interfaces = {str(address): interfaces[address] for address in listeners}
+            self.invitation_key = secrets.token_urlsafe(32)
+            first, *others = listeners
+            alternatives = '?via=' + ','.join(map(str, others)) if others else ''
+            self.invite = f'arad://{first}:{port}/{self.invitation_key}.{pin}{alternatives}'
             return self.status()
 
     async def close(self, _request=None):
         async with self.change:
-            listener, self.listener = self.listener, None
+            listeners, self.listeners = self.listeners, {}
+            self.interfaces = {}
             self.invite = self.invitation_key = ''
-            if listener:
+            for listener in listeners.values():
                 listener.close()
-                for task, writer in tuple(self.connections.items()):
-                    writer.close()
-                    task.cancel()
-                await asyncio.gather(*self.connections, return_exceptions=True)
-                await listener.wait_closed()
+            for task, writer in tuple(self.connections.items()):
+                writer.close()
+                task.cancel()
+            await asyncio.gather(*self.connections, return_exceptions=True)
+            await asyncio.gather(*(listener.wait_closed() for listener in listeners.values()))
             return self.status()
 
     async def accept(self, reader, writer):
         peer = writer.get_extra_info('peername')
-        if not self.listener or not peer or IPv4Address(peer[0]) not in self.network or len(self.connections) >= 96:
+        local = writer.get_extra_info('sockname')
+        if (not peer or not local or len(self.connections) >= 96
+                or not any(has_room_route(interface, IPv4Address(peer[0]))
+                           for interface in self.interfaces.get(local[0], ()))):
             await close_writer(writer)
             return
         task = asyncio.current_task()

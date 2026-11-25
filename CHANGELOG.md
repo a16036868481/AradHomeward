@@ -1,5 +1,11 @@
 # Changes
 
+## v2.6.0-preview.38 — 2026-11-25
+
+- Hosting a room uses available local and virtual IPv4 networks automatically.
+- Share one invitation with all guests. Joining tries shared network paths and verifies the room identity before signing in.
+- Follow the [LAN room guide](docs/LAN.md) to bring your saves forward.
+
 ## v2.6.0-preview.37 — 2026-11-25
 
 - Fixed a returning LAN guest being refused after the host edited their character. The trainer keeps guest accounts at ordinary player permissions.

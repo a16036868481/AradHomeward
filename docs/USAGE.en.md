@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Extract the whole `AradHomeward-v2.6.0-preview.37-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
+Extract the whole `AradHomeward-v2.6.0-preview.38-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
 
 Keep the extracted files and folders together. The package requires Windows 10 or 11 x64.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.37-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.38-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Choose a mode and create a local account
 
@@ -46,7 +46,7 @@ This is a translation preview: some original text, bitmap text and voices remain
 2. On the guest PC, choose **Multiplayer**, then **Join a room**. Paste the invitation, enter a player name and select **Connect and play**.
 3. Both players choose the same channel. The host PC saves guest progress.
 
-The room panel shows the address, connected guests and controls to copy the invitation or close the room. Use the same LAN build and connect both PCs to the same local network. [LAN room guide](LAN.md)
+Both PCs use the same build and share a LAN or a virtual LAN such as Radmin VPN. The room panel shows the guest count. Copy its invitation and send it to your friends. The game chooses the network path automatically. [LAN room guide](LAN.md)
 
 ## 5. Play and use the trainer
 

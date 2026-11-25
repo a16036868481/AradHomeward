@@ -305,11 +305,11 @@ internal static partial class Dnf60Control
 
     private static Task StartProfileSession(string profileId,Action<string> state,Func<bool> stillOpen)
     {
-        return StartAccountGame(profileId,state,stillOpen,null);
+        return StartAccountGame(profileId,state,stillOpen,false);
     }
 
     internal static async Task StartAccountGame(string profileId,Action<string> state,Func<bool> stillOpen,
-        Dictionary<string,object> roomNetwork)
+        bool hostRoom)
     {
         await Task.Run(()=>
         {
@@ -320,7 +320,7 @@ internal static partial class Dnf60Control
                 try
                 {
                     if(!stillOpen())throw new OperationCanceledException();
-                    if(roomNetwork!=null&&HasGameClient())throw new InvalidOperationException("lan_local_port_busy");
+                    if(hostRoom&&HasGameClient())throw new InvalidOperationException("lan_local_port_busy");
                     state("正在检查游戏语言包…");LanguageSupport.ValidateForGame(Root);
                     AccountStage("profile-services","正在准备本机游戏服务。");
                     state("正在准备本机游戏服务…");StartServices();
@@ -330,11 +330,11 @@ internal static partial class Dnf60Control
                     var credentials=ProfileRequest(new Dictionary<string,object>{{"operation","login"},{"id",profileId}});
                     string account=Convert.ToString(credentials["account"]),secret=Convert.ToString(credentials["secret"]);
                     if(!stillOpen())throw new OperationCanceledException();
-                    if(roomNetwork!=null)
+                    if(hostRoom)
                     {
                         state("lan_creating");
                         var previous=LanHostRequest("status",new Dictionary<string,object>());
-                        var room=LanHostRequest("open",roomNetwork);
+                        var room=LanHostRequest("open",new Dictionary<string,object>());
                         if(!Convert.ToBoolean(room["open"]))throw new InvalidOperationException("lan_open_failed");
                         openedRoom=!Convert.ToBoolean(previous["open"]);
                         if(!stillOpen())throw new OperationCanceledException();
@@ -344,7 +344,7 @@ internal static partial class Dnf60Control
                     using(LaunchProfileGame(account,secret)){}
                     credentials.Clear();secret=null;
                     Launch(TrainerExecutable,"--profile-selected",Root,false);
-                    if(roomNetwork==null)
+                    if(!hostRoom)
                         Result("profile-login",true,"已登录所选本机账号");
                     else
                     {
