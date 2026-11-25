@@ -1,6 +1,6 @@
 # 局域网房间
 
-两台电脑使用同一个联机版本，并连到同一局域网。
+两台电脑使用兼容的联机版本，并连到同一局域网。
 
 1. 房主在启动器进入「多人模式 → 创建房间」。新建或选择本地账号后，点击「创建房间」。
 2. 游戏启动后，房间窗口会显示地址和来宾人数。点击「复制邀请」，把邀请发给朋友。
@@ -12,9 +12,15 @@
 
 如果 Windows 弹出网络访问提示，允许此游戏联机组件在专用网络中通信。同一 Wi-Fi 下连不上时，确认路由器允许设备之间互访。
 
+## 房主升级并保留存档
+
+从 preview.36 升到 preview.37 时，房主升级即可。先正常结束旧版游戏并等备份完成，再把新版完整解压到新文件夹。
+
+从旧版 `backups/` 下本次退出生成的备份中取出 `dnf_a12.sqlite`，复制到新版的 `DNF60_ACT12/ACT12_Server/`，替换新版附带的空存档。用旧存档开房并发送新邀请。来宾在原安装目录输入原玩家名，房主端会自动备份并修复受影响账号，然后载入原角色。
+
 # LAN rooms
 
-Use the same LAN-capable build on both PCs and connect them to the same local network.
+Use compatible LAN builds on both PCs and connect them to the same local network.
 
 1. The host opens **Multiplayer**, then **Host a room**. Create or select a local account and choose **Host a room**.
 2. Once the game starts, the room window shows its address and the number of connected guests. Choose **Copy invitation** and share it.
@@ -25,3 +31,9 @@ The host can reopen the room window from the editor's **Overview** page or selec
 If a guest loses the connection, **Rejoin room** opens with the previous invitation and player name. Use it to reconnect to a room that is still open. If the host has reopened the room, paste the new invitation and keep the same player name. Select your character to continue from the saved progress.
 
 If Windows prompts for network access, allow the game's LAN component on private networks. If PCs on the same Wi-Fi cannot connect, check that the router permits device-to-device traffic.
+
+## Upgrade a room host
+
+For the upgrade from preview.36 to preview.37, update the host. Exit the old game normally and wait for its exit backup, then extract the new release into a new folder.
+
+Copy `dnf_a12.sqlite` from the old installation's new exit backup under `backups/` into the new installation's `DNF60_ACT12/ACT12_Server/` and replace the blank bundled save. Host the room and share the new invitation. Guests can join from their existing installation with the same player name. The host backs up and repairs affected guest accounts when they rejoin, then loads their saved characters.

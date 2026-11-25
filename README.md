@@ -4,9 +4,9 @@
 
 A portable Windows ACT12 / level-60 local game package with a name-only account launcher, a native desktop trainer, and five display languages. Custom launcher, trainer and localization work by **eirros**.
 
-**[Windows releases](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
+**[Windows download](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.37)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-`AradHomeward-v2.6.0-preview.36-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
+`AradHomeward-v2.6.0-preview.37-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
 
 Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 
@@ -35,6 +35,8 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 ![Native item manager example](docs/images/trainer-items-en-US.png)
 
 ## Current release status
+
+**v2.6.0-preview.37** fixes LAN guests being refused on rejoin after a host edited their character. Update the host and [bring the existing save forward](docs/LAN.md#upgrade-a-room-host). Guests can rejoin with their original installation and player name.
 
 **v2.6.0-preview.36** adds **Display & controller** to the launcher. The game starts at 960 × 720 in windowed mode. Choose the original size, a larger preset or **Fit to screen**. Xbox and other XInput controllers support movement, combat and configurable skill shortcuts. Saved settings apply the next time the game starts.
 

@@ -121,7 +121,12 @@ def require_session(character_id):
     return session
 
 def ensure_gm(account_id):
-    with connect_db() as db: db.execute('update accounts set gm_enabled=1 where account_id=?',(account_id,))
+    with connect_db() as db:
+        query = 'UPDATE accounts SET gm_enabled=1 WHERE account_id=?'
+        # The room signs guests in as ordinary players, including after a host edits their save.
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='dnf60_lan_guests'").fetchone():
+            query += ' AND NOT EXISTS (SELECT 1 FROM dnf60_lan_guests WHERE account_id=accounts.account_id)'
+        db.execute(query, (account_id,))
 
 def baseline(job,grow,level):
     data=GROWTH['jobs'][str(job)]

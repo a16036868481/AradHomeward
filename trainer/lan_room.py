@@ -152,6 +152,24 @@ def client_build(root):
         return hashlib.file_digest(file, 'sha256').hexdigest()
 
 
+def restore_guest_permissions(store, identity, account_id):
+    """Repair guest accounts previously promoted by an offline trainer edit."""
+    store.initialize()
+    with store.connect() as db:
+        if db.execute('SELECT 1 FROM dnf60_local_profiles WHERE account_id=?', (account_id,)).fetchone():
+            raise RoomError('lan_guest_account_error')
+
+    store.backup('restore-lan-guest-permissions')
+    with store.connect() as db:
+        updated = db.execute('''UPDATE accounts SET gm_enabled=0 WHERE account_id=?
+            AND EXISTS (SELECT 1 FROM dnf60_lan_guests
+                        WHERE player_hash=? AND account_id=accounts.account_id)
+            AND NOT EXISTS (SELECT 1 FROM dnf60_local_profiles WHERE account_id=accounts.account_id)''',
+                             (account_id, identity))
+        if updated.rowcount != 1:
+            raise RoomError('lan_guest_account_error')
+
+
 def guest_credentials(store, player_key, name):
     """Allocate a non-GM account without changing the host's selected profile."""
     identity = hashlib.sha256(bytes.fromhex(player_key)).hexdigest()
@@ -161,12 +179,10 @@ def guest_credentials(store, player_key, name):
                 player_hash TEXT PRIMARY KEY, display_name TEXT NOT NULL,
                 account_id INTEGER UNIQUE NOT NULL REFERENCES accounts(account_id) ON DELETE CASCADE,
                 login_secret TEXT NOT NULL)''')
-            row = db.execute('''SELECT a.account_name, a.gm_enabled, g.login_secret
+            row = db.execute('''SELECT a.account_id, a.account_name, a.gm_enabled, g.login_secret
                 FROM dnf60_lan_guests g JOIN accounts a USING(account_id) WHERE player_hash=?''',
                 (identity,)).fetchone()
         if row:
-            if row['gm_enabled']:
-                raise RoomError('lan_guest_account_error')
             login, secret = row['account_name'], row['login_secret']
         else:
             store.backup('create-lan-guest')
@@ -185,6 +201,8 @@ def guest_credentials(store, player_key, name):
                     (login, stored_password)).lastrowid
                 db.execute('INSERT INTO dnf60_lan_guests VALUES(?,?,?,?)', (identity, name, account, secret))
         authenticate_local(store.root, login, secret)
+        if row and row['gm_enabled']:
+            restore_guest_permissions(store, identity, row['account_id'])
     return login, secret
 
 

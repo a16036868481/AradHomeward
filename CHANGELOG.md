@@ -1,5 +1,11 @@
 # Changes
 
+## v2.6.0-preview.37 — 2026-11-25
+
+- Fixed a returning LAN guest being refused after the host edited their character. The trainer keeps guest accounts at ordinary player permissions.
+- On rejoin, the host backs up the save and repairs affected guest permissions in place. The original guest account, character and progress are preserved.
+- Existing hosts can migrate their save while guests continue using the original installation and player name. See the [LAN room guide](docs/LAN.md).
+
 ## v2.6.0-preview.36 — 2026-11-24
 
 - Added window presets from 640 × 480 to 1280 × 960 and a fit-to-screen setting. The package defaults to 960 × 720.

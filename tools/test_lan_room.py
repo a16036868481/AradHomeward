@@ -1,8 +1,11 @@
 """Exercise invitation authentication, native transport, and room shutdown."""
 import asyncio
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, closing
+import hashlib
 from ipaddress import IPv4Address
+import json
 from pathlib import Path
+import sqlite3
 from tempfile import TemporaryDirectory
 import sys
 import unittest
@@ -12,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'trainer'))
 import lan_guest
 import lan_room
 from lan_room import RoomError, close_writer
+from local_profiles import ProfileStore
 
 
 async def echo(reader, writer):
@@ -41,6 +45,60 @@ class UdpProbe(asyncio.DatagramProtocol):
     def datagram_received(self, data, _address):
         if not self.result.done():
             self.result.set_result(data)
+
+
+class GuestAccountTests(unittest.TestCase):
+    def test_returning_guest_keeps_character_after_legacy_gm_promotion(self):
+        with TemporaryDirectory() as directory:
+            store = ProfileStore(directory)
+            store.database.parent.mkdir(parents=True)
+            with closing(sqlite3.connect(store.database)) as db:
+                db.executescript('''CREATE TABLE accounts(
+                    account_id INTEGER PRIMARY KEY, account_name TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL, gm_enabled INTEGER NOT NULL, cera INTEGER NOT NULL);
+                    CREATE TABLE characters(character_id INTEGER PRIMARY KEY, account_id INTEGER NOT NULL
+                        REFERENCES accounts(account_id), name TEXT, level INTEGER, gold INTEGER);''')
+            host_profile = store.create('Host')['selectedId']
+            guest_key = '42' * 32
+            with patch.object(lan_room, 'authenticate_local') as authenticate:
+                credentials = lan_room.guest_credentials(store, guest_key, 'Guest')
+                with store.connect() as db:
+                    account = db.execute('SELECT account_id FROM accounts WHERE account_name=?',
+                                         (credentials[0],)).fetchone()[0]
+                    db.execute('INSERT INTO characters VALUES(23,?,?,?,?)', (account, 'GuestRole', 19, 43210))
+                    db.execute('UPDATE accounts SET gm_enabled=1 WHERE account_id=?', (account,))
+
+                self.assertEqual(lan_room.guest_credentials(store, guest_key, 'Guest'), credentials)
+                self.assertEqual(authenticate.call_count, 2)
+                with store.connect() as db:
+                    row = db.execute('''SELECT character_id, account_id, gold, gm_enabled
+                        FROM characters JOIN accounts USING(account_id) WHERE character_id=23''').fetchone()
+                    self.assertEqual(tuple(row), (23, account, 43210, 0))
+                    self.assertEqual(db.execute('SELECT COUNT(*) FROM accounts').fetchone()[0], 2)
+                self.assertEqual(store.state()['selectedId'], host_profile)
+
+                markers = store.root.glob('backups/accounts/*/COMPLETE.json')
+                repairs = [p for p in markers if json.loads(p.read_text(encoding='utf-8'))['action'] ==
+                           'restore-lan-guest-permissions']
+                self.assertEqual(len(repairs), 1)
+                before = repairs[0].with_name('dnf_a12.sqlite')
+                with closing(sqlite3.connect(before.as_uri() + '?mode=ro', uri=True)) as db:
+                    self.assertEqual(db.execute('SELECT gm_enabled FROM accounts WHERE account_id=?',
+                                                (account,)).fetchone(), (1,))
+
+                # A damaged mapping must not demote or lend out a local owner's account.
+                host_account = store.selected_account_id()
+                bad_key = '24' * 32
+                host_secret = store.credentials(host_profile)[1]
+                with store.connect() as db:
+                    db.execute('INSERT INTO dnf60_lan_guests VALUES(?,?,?,?)',
+                               (hashlib.sha256(bytes.fromhex(bad_key)).hexdigest(),
+                                'Wrong account', host_account, host_secret))
+                with self.assertRaisesRegex(RoomError, '^lan_guest_account_error$'):
+                    lan_room.guest_credentials(store, bad_key, 'Wrong account')
+                with store.connect() as db:
+                    self.assertEqual(db.execute('SELECT gm_enabled FROM accounts WHERE account_id=?',
+                                                (host_account,)).fetchone()[0], 1)
 
 
 class LanRoomTests(unittest.IsolatedAsyncioTestCase):

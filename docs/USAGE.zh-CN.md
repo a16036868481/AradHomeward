@@ -4,11 +4,11 @@
 
 ## 1. 下载并完整解压
 
-将 `AradHomeward-v2.6.0-preview.36-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
+将 `AradHomeward-v2.6.0-preview.37-win-x64.zip` 完整解压到一个新的可写目录，例如 `D:\Games\AradHomeward`。直接打开其中的 `AradHomeward.exe`。
 
 解压后的程序和数据文件夹请一起保留。本包需要 Windows 10/11 64 位。
 
-需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.36-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
+需要验证下载时，可在 PowerShell 执行 `Get-FileHash .\AradHomeward-v2.6.0-preview.37-win-x64.zip -Algorithm SHA256`，与 `SHA256SUMS.txt` 对照。
 
 ## 2. 选择模式与新建账号
 

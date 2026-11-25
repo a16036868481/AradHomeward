@@ -4,9 +4,9 @@
 
 Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选择器、原生桌面修改器和五种显示语言。启动器、修改器及本项目的本地化改动由 **eirros** 制作。
 
-**[Windows 发布页](https://github.com/a16036868481/AradHomeward/releases)** · **[中文图文说明](docs/USAGE.zh-CN.md)** · **[English guide](docs/USAGE.en.md)**
+**[下载 Windows 版](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.37)** · **[中文图文说明](docs/USAGE.zh-CN.md)** · **[English guide](docs/USAGE.en.md)**
 
-`AradHomeward-v2.6.0-preview.36-win-x64.zip` 是 Windows 完整包，包含游戏、本机服务、桌面修改器和局域网房间。
+`AradHomeward-v2.6.0-preview.37-win-x64.zip` 是 Windows 完整包，包含游戏、本机服务、桌面修改器和局域网房间。
 
 解压到新文件夹即可试用，原安装目录里的存档可继续保留。双击解压目录最外层的 `AradHomeward.exe` 启动。
 
@@ -35,6 +35,8 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 ![原生物品管理示例](docs/images/trainer-items-zh-Hans.png)
 
 ## 当前版本说明
+
+**v2.6.0-preview.37** 修复了房主编辑来宾角色后，原玩家名无法再次加入的问题。房主升级时请[迁移原存档](docs/LAN.md#房主升级并保留存档)，来宾继续从原安装目录用原玩家名加入。
 
 **v2.6.0-preview.36** 在启动器加入「显示与手柄」。窗口默认以 960 × 720 启动，可选原始尺寸、更大档位或自适应屏幕。Xbox 和其他 XInput 手柄可用于移动、战斗和技能操作，键位可自定义。保存设置后，下次启动游戏时应用。
 

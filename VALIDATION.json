@@ -1,7 +1,7 @@
 {
-  "version": "2.6.0-preview.36",
-  "checkedOn": "2026-11-24",
-  "automatedTestsPassed": 40,
+  "version": "2.6.0-preview.37",
+  "checkedOn": "2026-11-25",
+  "automatedTestsPassed": 14,
   "startupDiagnosticChecksPassed": 7,
   "languagePackHashesVerified": [
     "zh-Hans",
@@ -27,6 +27,7 @@
     ]
   },
   "windowAndController": {
+    "checkedIn": "2.6.0-preview.36",
     "settingsViewAndSaveLanguages": ["zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR"],
     "automatedMappingAndSizeChecksPassed": 27,
     "nativeViewportSizesObserved": ["640x480", "800x600", "960x720", "1120x840", "1280x960", "1856x1392 (fit to test screen)"],
@@ -35,6 +36,7 @@
     "physicalControllerVerified": false
   },
   "nativeExit": {
+    "checkedIn": "2.6.0-preview.36",
     "inGameExitClosedGameTrainerAndBackgroundServices": true,
     "completeSaveBackupObserved": true
   },
@@ -61,6 +63,12 @@
     "testEnvironment": "one Windows computer",
     "realServerAndSeparateGuestConnection": true,
     "guestJoinedReconnectedAndLoadedSavedProgress": true,
+    "oldGuestAccountRecoveredAfterUpgrade": true,
+    "repairBackupIntegrityVerified": true,
+    "hostEditsKeepGuestPermissions": true,
+    "sameRoomRejoinAfterHostEdit": true,
+    "rejoinedWithNewRoomInvitation": true,
+    "forcedDisconnectRejoinedSameSave": true,
     "roomClosureObserved": true
   }
 }
