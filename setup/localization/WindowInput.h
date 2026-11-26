@@ -131,6 +131,8 @@ namespace AradWindowInput
     {
         const bool isChat = window == chatWindow;
         WNDPROC previous = isChat ? chatProcedure : gameProcedure;
+        if (!isChat && (message == WM_KILLFOCUS || (message == WM_ACTIVATEAPP && !wParam)))
+            AradGameSettings::SuspendInput();
         if (!isChat && message == WM_SIZE) AradGameSettings::PublishScreenMode(AradGameSettings::Config());
         if (isChat && message == WM_SIZE)
         {

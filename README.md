@@ -38,7 +38,7 @@ The standard package requires **Windows 10 (1607 or later) or Windows 11, 64-bit
 
 **v2.6.0-preview.39** adds eight window sizes up to 2880 × 2160. The side chat scales with the game. At sign-in the launcher selects available local ports when the defaults are in use.
 
-Open **System menu → Settings** from the game's bottom bar. The original panel includes **Window size**. Select **Gamepad** in the same panel to enable a controller or set its bindings. Use **Save** to apply the changes in game.
+Open **System menu → Settings** from the game's bottom bar. The original panel includes **Window size**. Under **Controls**, choose a town walking pace, enable hold-to-repeat, or open **Gamepad** to set controller bindings. Select **Save** to apply your changes.
 
 The first-use game mixer remains one quarter of the current Windows output volume. After a LAN disconnect, **Rejoin room** opens with the previous invitation and player name.
 

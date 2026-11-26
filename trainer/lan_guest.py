@@ -16,11 +16,12 @@ import struct
 import sys
 
 from bridge import forward_until_closed
+from input_scene import InputScene
 from lan_network import IP_UNICAST_IF, has_room_route, room_interfaces
 from lan_room import (
     GAME_PORT, HANDSHAKE_TIMEOUT, HEARTBEAT_INTERVAL, HEARTBEAT_PING, HEARTBEAT_PONG,
     HEARTBEAT_TIMEOUT, HELLO_LIMIT, LOOPBACK, PROTOCOL, DatagramQueue,
-    RoomError, client_build, close_writer, copy_stream, parse_invitation,
+    RoomError, SCENE_BYTES, client_build, close_writer, copy_stream, parse_invitation,
     read_message, receive_datagrams, send_datagrams, write_message,
 )
 from local_profiles import ROOT, account_name
@@ -94,6 +95,7 @@ class GuestConnection:
         self.control_reader = self.control_writer = None
         self.ticket = ''
         self.heartbeat = self.closing = False
+        self.scene = None
         self.tcp_listeners, self.udp_listeners, self.tasks = [], [], set()
         self.tcp_writers = set()
 
@@ -190,9 +192,12 @@ class GuestConnection:
             raise RoomError('lan_invalid_name') from None
         player = player_identity(self.root, identity_name)
         self.control_reader, self.control_writer, reply = await self.exchange(
-            'join', key=self.invite_key, build=client_build(self.root), player=player, name=name, heartbeat=True)
+            'join', key=self.invite_key, build=client_build(self.root), player=player, name=name, heartbeat=True,
+            inputScene=True)
         self.ticket = reply['ticket']
         self.heartbeat = reply.get('heartbeat') is True
+        if reply.get('inputScene') is True:
+            self.scene = InputScene(self.root)
         tcp, udp = reply['tcp'], reply['udp']
         if (GAME_PORT not in tcp or len(tcp) + len(udp) > 96
                 or any(type(port) is not int or not 1 <= port <= 65535 for port in (*tcp, *udp))):
@@ -212,6 +217,13 @@ class GuestConnection:
             raise RoomError('lan_local_port_busy') from None
         return {'account': reply['account'], 'secret': reply['secret']}
 
+    async def read_control(self, reader):
+        while True:
+            data = await reader.read(1)
+            if self.scene is None or data not in SCENE_BYTES.values():
+                return data
+            self.scene.set(next(scene for scene, code in SCENE_BYTES.items() if code == data))
+
     async def wait_for_room_loss(self):
         reader, writer = self.control_reader, self.control_writer
         try:
@@ -221,17 +233,20 @@ class GuestConnection:
             while True:
                 try:
                     # EOF wakes the guest immediately on a graceful room close.
-                    await asyncio.wait_for(reader.read(1), HEARTBEAT_INTERVAL)
+                    await asyncio.wait_for(self.read_control(reader), HEARTBEAT_INTERVAL)
                     return
                 except asyncio.TimeoutError:
                     pass
                 async with timeout(HEARTBEAT_TIMEOUT):
                     writer.write(HEARTBEAT_PING)
                     await writer.drain()
-                    if await reader.readexactly(1) != HEARTBEAT_PONG:
+                    if await self.read_control(reader) != HEARTBEAT_PONG:
                         return
         except (OSError, asyncio.TimeoutError, EOFError):
             return
+        finally:
+            if self.scene:
+                self.scene.set('')
 
     def accept_tcp(self, reader, writer, port):
         if self.closing:
@@ -263,6 +278,8 @@ class GuestConnection:
             await close_writer(writer)
 
     async def close(self):
+        if self.scene:
+            self.scene.set('')
         if self.closing:
             return
         self.closing = True

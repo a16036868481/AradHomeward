@@ -4,6 +4,8 @@
 #include <cwchar>
 #include <intrin.h>
 #include <windows.h>
+#include "HoldRepeat.h"
+#include "TownPace.h"
 
 namespace AradGameSettings
 {
@@ -13,15 +15,17 @@ namespace AradGameSettings
     constexpr UINT sendFlags = SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT;
     constexpr int windowed = 0, maximized = 1, fullScreen = 2, nativeScreenOption = 4;
     constexpr int gameSettingsTab = 1, bindingCount = 22, defaultBinding = 0x100;
+    constexpr int townSpeeds[] = {100, 75, 50, 25};
+    constexpr int repeatRates[] = {0, 4, 8, 12};
     constexpr int scales[] = {100, 125, 150, 175, 200, 210, 225, 250, 275, 300, 320, 400, 450, 0};
     constexpr DWORD normalInk = 0xffe9d9b3, selectedInk = 0xffffe57b;
 
     struct Preferences
     {
-        int display, scale, padEnabled, keys[bindingCount];
+        int display, scale, padEnabled, keys[bindingCount], townSpeed, repeatRate, repeatKey;
     };
 
-    static_assert(sizeof(Preferences) == (bindingCount + 3) * sizeof(int), "Game preferences packet");
+    static_assert(sizeof(Preferences) == (bindingCount + 6) * sizeof(int), "Game preferences packet");
 
     struct Labels
     {
@@ -48,6 +52,16 @@ namespace AradGameSettings
         L"RB+X", L"RB+A", L"RB+Y", L"RB+B",
         L"LB+RB X", L"LB+RB A", L"LB+RB Y", L"LB+RB B", L"Start", L"Back"
     };
+
+    struct ActionLabels { const wchar_t *controls, *actions, *town, *repeat, *key, *keyHint; };
+    constexpr ActionLabels actionLabels[] = {
+        {L"操作", L"角色操作", L"城镇移动速度", L"按住连发", L"连发键", L"请选择字母键或数字键"},
+        {L"操作", L"角色操作", L"城鎮移動速度", L"按住連發", L"連發鍵", L"請選擇字母鍵或數字鍵"},
+        {L"Controls", L"Actions", L"Town movement", L"Hold to repeat", L"Repeat key", L"Press a letter or number key"},
+        {L"操作", L"キャラ操作", L"街での移動速度", L"長押し連射", L"連射キー", L"英字か数字キーを押してください"},
+        {L"조작", L"캐릭터 조작", L"마을 이동 속도", L"누르고 연타", L"연타 키", L"영문 또는 숫자 키를 누르세요"}
+    };
+    enum class Page { Game, Actions, Pad };
 
     using OpenWindow = bool (__thiscall*)(void*, int, int);
     using DrawWindow = void (__thiscall*)(void*, void*);
@@ -82,14 +96,17 @@ namespace AradGameSettings
         void* window;
         void* originalPane;
         void* padPane;
+        void* actionPane;
         void* size;
         void* gameTab;
         void* padTab;
         void* enabled;
         void* defaults;
+        void *townSpeed, *repeatRate, *repeatKey, *openPad, *backToActions;
         void* bindings[bindingCount];
         Preferences values;
-        bool ready, active, padPage, saveError;
+        bool ready, active, extended, saveError;
+        Page page;
         int binding;
     };
 
@@ -102,6 +119,10 @@ namespace AradGameSettings
     static ReadImeKey readImeKey;
     static SettingsControls ui;
     static const Labels* text = &localized[0];
+    static const ActionLabels& Actions() { return actionLabels[text - localized]; }
+    static HoldRepeat repeat;
+    static TownPace pace;
+    static void SuspendInput() { repeat.Suspend(); pace.Reset(); }
     static OpenWindow openOriginal;
     static DrawWindow drawOriginal;
     static UpdateWindow updateOriginal, closeOriginal, finishOriginal;
@@ -152,6 +173,7 @@ namespace AradGameSettings
         capturedScan = 0;
         queuedBindingKey = 0;
         queuedBindingScan = 0;
+        SuspendInput();
         viewport = nullptr;
     }
 
@@ -179,6 +201,14 @@ namespace AradGameSettings
             values.keys[i] = ReadPreference(endpoint, i + 3);
             if (values.keys[i] < 0) return false;
         }
+        values.townSpeed = ReadPreference(endpoint, bindingCount + 3);
+        ui.extended = values.townSpeed >= 0;
+        if (ui.extended)
+        {
+            values.repeatRate = ReadPreference(endpoint, bindingCount + 4);
+            values.repeatKey = ReadPreference(endpoint, bindingCount + 5);
+            if (values.repeatRate < 0 || values.repeatKey < 0) return false;
+        }
         if (auto config = Config())
         {
             const int mode = ScreenMode(config);
@@ -198,7 +228,8 @@ namespace AradGameSettings
         if (ScreenMode(config) != windowed && !Address<WriteOption>(0xbe4f30)(config, nativeScreenOption, windowed))
             return false;
         PublishScreenMode(config);
-        COPYDATASTRUCT data = {packet, sizeof(ui.values), &ui.values};
+        COPYDATASTRUCT data = {packet, ui.extended ? static_cast<DWORD>(sizeof(ui.values)) :
+            static_cast<DWORD>((bindingCount + 3) * sizeof(int)), &ui.values};
         DWORD_PTR result = 0;
         const HWND endpoint = Endpoint();
         return endpoint && SendMessageTimeoutW(endpoint, WM_COPYDATA, reinterpret_cast<WPARAM>(viewport),
@@ -291,7 +322,9 @@ namespace AradGameSettings
     static void RefreshBinding(int index)
     {
         wchar_t name[8];
-        Caption(ui.bindings[index], KeyCaption(ui.values.keys[index], name), index == ui.binding ? selectedInk : normalInk);
+        bool action = index == bindingCount;
+        Caption(action ? ui.repeatKey : ui.bindings[index], KeyCaption(action ? ui.values.repeatKey :
+            ui.values.keys[index], name), index == ui.binding ? selectedInk : normalInk);
     }
 
     static void SelectBinding(int index)
@@ -304,6 +337,14 @@ namespace AradGameSettings
 
     static bool AssignBinding(UINT key)
     {
+        if (ui.binding == bindingCount)
+        {
+            if (key == VK_ESCAPE) { SelectBinding(-1); return true; }
+            if (!(key >= 'A' && key <= 'Z') && !(key >= '0' && key <= '9')) return false;
+            ui.values.repeatKey = static_cast<int>(key);
+            SelectBinding(-1);
+            return true;
+        }
         switch (key)
         {
         case VK_ESCAPE: case VK_RETURN: case VK_TAB: case VK_SPACE: case VK_HOME: case VK_END:
@@ -321,14 +362,17 @@ namespace AradGameSettings
 
     static bool WaitingForBinding()
     {
-        return ui.active && ui.padPage && ui.binding >= 0 && GetForegroundWindow() == viewport;
+        return ui.active && ui.page != Page::Game && ui.binding >= 0 && GetForegroundWindow() == viewport;
     }
 
     static bool CaptureQueuedKey(const MSG& event)
     {
-        if (event.message == WM_KILLFOCUS) queuedBindingKey = 0;
+        if (event.message == WM_KILLFOCUS) { queuedBindingKey = 0; SuspendInput(); }
         const bool down = event.message == WM_KEYDOWN || event.message == WM_SYSKEYDOWN;
         const bool up = event.message == WM_KEYUP || event.message == WM_SYSKEYUP;
+        // Chat and dialogs consume their own text and navigation messages. Disarm an
+        // ongoing hold at the transition, even when the game draws its own edit box.
+        if (down && (event.wParam == VK_RETURN || event.wParam == VK_ESCAPE)) SuspendInput();
         if (!down && !up) return false;
         const unsigned scan = (event.lParam >> 16) & 0x7f;
         const bool extended = (event.lParam & 0x01000000) != 0;
@@ -357,10 +401,39 @@ namespace AradGameSettings
     static HRESULT __fastcall PollSettingsKeyboard(void* keyboard, void*)
     {
         const HRESULT result = pollOriginal(keyboard);
-        if (FAILED(result) || !Field<BYTE>(keyboard, 4)) return result;
+        if (FAILED(result) || !Field<BYTE>(keyboard, 4)) { repeat.Suspend(); pace.Reset(); return result; }
         // Process the same DirectInput snapshot as the game's shortcut handlers.
         auto& keys = Field<BYTE[256]>(keyboard, 0x10d);
         auto& last = Field<BYTE[256]>(keyboard, 0x20d);
+        const bool eligible = viewport && !ui.active && GetForegroundWindow() == viewport && GetFocus() == viewport;
+        const unsigned town = eligible ? HandleToULong(GetPropW(viewport, L"AradHomeward.TownPace")) : 0;
+        if (town == 25 || town == 50 || town == 75)
+        {
+            // Standard DirectInput cursor keys, shared by the keyboard and the default pad mapping.
+            constexpr unsigned arrows[] = {0xcb, 0xcd, 0xc8, 0xd0};
+            bool moving = false;
+            for (auto scan : arrows) moving |= (keys[scan] & 0x80) != 0;
+            if (!pace.Sample(town, moving, GetTickCount()))
+                for (auto scan : arrows) keys[scan] = 0;
+        }
+        else pace.Reset();
+        const unsigned setting = viewport ? HandleToULong(GetPropW(viewport, L"AradHomeward.HoldRepeat")) : 0;
+        const unsigned key = setting & 255, rate = setting >> 8;
+        if ((rate == 4 || rate == 8 || rate == 12) && ((key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9')))
+        {
+            const unsigned scan = MapVirtualKeyW(key, MAPVK_VK_TO_VSC);
+            if (scan && scan < ARRAYSIZE(keys))
+            {
+                const bool shaping = repeat.Shaping(), previous = repeat.WasDown();
+                const bool pressed = repeat.Sample(setting, eligible, (keys[scan] & 0x80) != 0, GetTickCount());
+                if (eligible && (repeat.Shaping() || shaping))
+                {
+                    keys[scan] = pressed ? 0x80 : 0;
+                    if (shaping) last[scan] = previous ? 0x80 : 0;
+                }
+            }
+        }
+        else repeat.Suspend();
         if (capturedScan)
         {
             const bool held = (keys[capturedScan] & 0x80) != 0;
@@ -394,10 +467,28 @@ namespace AradGameSettings
         // The combo moves up when opened. Anchor its list after the final field placement.
         Move(Field<void*>(ui.size, 0xac), X(ui.size), Y(ui.size) + 2);
         Move(ui.padPane, x, y);
+        Move(ui.actionPane, x, y);
+        Move(ui.townSpeed, x + 147, y + 44);
+        Move(ui.repeatRate, x + 147, y + 87);
+        Move(ui.repeatKey, x + 147, y + 119);
+        Move(ui.openPad, x + 147, y + 177);
+        Move(ui.backToActions, x + 152, y + 363);
         Move(ui.enabled, x + 92, y + 30);
         Move(ui.defaults, x + 152, y + 30);
         for (int i = 0; i < bindingCount; ++i)
             Move(ui.bindings[i], x + (i % 2 ? 152 : 45), y + 61 + (i / 2) * 25);
+    }
+
+    static void* NewPane(void* window, void* frame, int x, int y)
+    {
+        auto storage = Address<Allocate>(0x401fb0)(0x70);
+        if (!storage) return nullptr;
+        auto pane = Address<BuildControl>(0x5704e0)(storage);
+        Field<void*>(pane, 0x44) = window;
+        Move(pane, x, y);
+        Visible(pane, false);
+        Address<AttachControl>(0xc9afa0)(frame, pane);
+        return pane;
     }
 
     static bool CreateControls(void* window)
@@ -409,15 +500,9 @@ namespace AradGameSettings
         ui.binding = -1;
         auto frame = Frame(window);
         const int x = X(frame), y = Y(frame);
-        if (auto storage = Address<Allocate>(0x401fb0)(0x70))
-        {
-            ui.padPane = Address<BuildControl>(0x5704e0)(storage);
-            Field<void*>(ui.padPane, 0x44) = window;
-            Move(ui.padPane, x, y);
-            Visible(ui.padPane, false);
-            Address<AttachControl>(0xc9afa0)(frame, ui.padPane);
-        }
-        if (!ui.padPane) return false;
+        ui.padPane = NewPane(window, frame, x, y);
+        ui.actionPane = NewPane(window, frame, x, y);
+        if (!ui.padPane || !ui.actionPane) return false;
         ui.size = NewSizeCombo();
         Visible(ui.size, false);
         ui.gameTab = NewButton(frame, text->game, x + 8, y + 393);
@@ -427,7 +512,13 @@ namespace AradGameSettings
         if (!ui.size || !ui.gameTab || !ui.padTab) return false;
         ui.enabled = NewButton(ui.padPane, text->on, x + 92, y + 30);
         ui.defaults = NewButton(ui.padPane, text->defaults, x + 152, y + 30);
-        if (!ui.enabled || !ui.defaults) return false;
+        ui.backToActions = NewButton(ui.padPane, Actions().actions, x + 152, y + 363);
+        ui.townSpeed = NewButton(ui.actionPane, L"", x + 147, y + 44);
+        ui.repeatRate = NewButton(ui.actionPane, L"", x + 147, y + 87);
+        ui.repeatKey = NewButton(ui.actionPane, L"", x + 147, y + 119);
+        ui.openPad = NewButton(ui.actionPane, text->pad, x + 147, y + 177);
+        if (!ui.enabled || !ui.defaults || !ui.backToActions || !ui.townSpeed || !ui.repeatRate ||
+            !ui.repeatKey || !ui.openPad) return false;
         for (int i = 0; i < bindingCount; ++i)
         {
             ui.bindings[i] = NewButton(ui.padPane, L"", x + (i % 2 ? 152 : 45), y + 61 + (i / 2) * 25);
@@ -437,14 +528,33 @@ namespace AradGameSettings
         return true;
     }
 
-    static void ShowPage(bool pad)
+    static void RefreshActions()
     {
-        ui.padPage = pad;
+        wchar_t value[16];
+        swprintf_s(value, L"%d%%", ui.values.townSpeed);
+        Caption(ui.townSpeed, value);
+        swprintf_s(value, L"%d / s", ui.values.repeatRate);
+        Caption(ui.repeatRate, ui.values.repeatRate ? value : text->off);
+        RefreshBinding(bindingCount);
+    }
+
+    template<size_t count> static int Next(int current, const int (&choices)[count])
+    {
+        for (size_t i = 0; i < count; ++i)
+            if (choices[i] == current) return choices[(i + 1) % count];
+        return choices[0];
+    }
+
+    static void ShowPage(Page page)
+    {
+        ui.page = page;
         SelectBinding(-1);
-        Visible(ui.originalPane, !pad);
-        Visible(ui.padPane, pad);
-        Caption(ui.gameTab, text->game, pad ? normalInk : selectedInk);
-        Caption(ui.padTab, text->pad, pad ? selectedInk : normalInk);
+        Visible(ui.originalPane, page == Page::Game);
+        Visible(ui.padPane, page == Page::Pad);
+        Visible(ui.actionPane, page == Page::Actions);
+        Visible(ui.backToActions, page == Page::Pad && ui.extended);
+        Caption(ui.gameTab, text->game, page == Page::Game ? selectedInk : normalInk);
+        Caption(ui.padTab, ui.extended ? Actions().controls : text->pad, page == Page::Game ? normalInk : selectedInk);
     }
 
     static void HideControls()
@@ -452,10 +562,11 @@ namespace AradGameSettings
         if (!ui.active) return;
         ui.active = false;
         Visible(ui.padPane, false);
+        Visible(ui.actionPane, false);
         Visible(ui.gameTab, false);
         Visible(ui.padTab, false);
         Visible(ui.size, false);
-        if (ui.padPage && Field<int>(ui.window, 0x1ac) == gameSettingsTab) Visible(ui.originalPane, true);
+        if (ui.page != Page::Game && Field<int>(ui.window, 0x1ac) == gameSettingsTab) Visible(ui.originalPane, true);
         auto frame = Frame(ui.window);
         Move(Field<void*>(ui.window, 0x168), X(frame) + 9, Y(frame) + 365);
     }
@@ -481,6 +592,7 @@ namespace AradGameSettings
             return true;
         }
         ui.active = true;
+        SuspendInput();
         ui.saveError = false;
         LayoutControls();
         SelectMode(ui.values.display);
@@ -491,7 +603,8 @@ namespace AradGameSettings
         Visible(ui.size, true);
         Visible(ui.gameTab, true);
         Visible(ui.padTab, true);
-        ShowPage(false);
+        ShowPage(Page::Game);
+        if (ui.extended) RefreshActions();
         Caption(ui.enabled, ui.values.padEnabled ? text->on : text->off);
         for (int i = 0; i < bindingCount; ++i) RefreshBinding(i);
         return true;
@@ -501,7 +614,7 @@ namespace AradGameSettings
     {
         drawOriginal(window, control);
         if (!ui.active || window != ui.window) return;
-        if (control != (ui.padPage ? ui.padPane : ui.originalPane)) return;
+        if (control != (ui.page == Page::Game ? ui.originalPane : ui.page == Page::Pad ? ui.padPane : ui.actionPane)) return;
         auto renderer = *Address<void**>(0x129647c);
         if (!renderer) return;
         // The native renderer keeps a pointer to the active style until it is popped.
@@ -509,18 +622,26 @@ namespace AradGameSettings
         auto methods = Field<void**>(renderer, 0);
         reinterpret_cast<SetFontStyle>(methods[0x4c / sizeof(void*)])(renderer, &style);
         const int x = X(Frame(window)), y = Y(Frame(window));
-        if (!ui.padPage)
+        if (ui.page == Page::Game)
         {
             Label(renderer, x + 9, y + 368, text->size);
             if (ui.saveError) Label(renderer, x + 9, y + 347, text->saveError, 0xffffa592);
         }
-        else
+        else if (ui.page == Page::Pad)
         {
             Label(renderer, x + 9, y + 35, text->enabled);
             for (int i = 0; i < bindingCount; ++i)
                 Label(renderer, x + (i % 2 ? 106 : 3), y + 66 + (i / 2) * 25, padActions[i]);
             Label(renderer, x + 9, y + 345, ui.saveError ? text->saveError : ui.binding >= 0 ? text->pressKey : text->hint,
                 ui.saveError ? 0xffffa592 : selectedInk);
+        }
+        else
+        {
+            Label(renderer, x + 9, y + 49, Actions().town);
+            Label(renderer, x + 9, y + 92, Actions().repeat);
+            Label(renderer, x + 9, y + 124, Actions().key);
+            if (ui.binding == bindingCount) Label(renderer, x + 9, y + 151, Actions().keyHint, selectedInk);
+            if (ui.saveError) Label(renderer, x + 9, y + 345, text->saveError, 0xffffa592);
         }
         reinterpret_cast<RestoreFontStyle>(methods[0x50 / sizeof(void*)])(renderer);
     }
@@ -534,11 +655,19 @@ namespace AradGameSettings
     {
         if (ui.active && window == ui.window)
         {
-            if (Clicked(ui.gameTab)) ShowPage(false);
-            else if (Clicked(ui.padTab)) ShowPage(true);
-            else if (ui.padPage)
+            if (Clicked(ui.gameTab)) ShowPage(Page::Game);
+            else if (Clicked(ui.padTab)) ShowPage(ui.extended ? Page::Actions : Page::Pad);
+            else if (ui.page == Page::Actions)
             {
-                if (Clicked(ui.enabled))
+                if (Clicked(ui.townSpeed)) { ui.values.townSpeed = Next(ui.values.townSpeed, townSpeeds); RefreshActions(); }
+                else if (Clicked(ui.repeatRate)) { ui.values.repeatRate = Next(ui.values.repeatRate, repeatRates); RefreshActions(); }
+                else if (Clicked(ui.repeatKey)) SelectBinding(bindingCount);
+                else if (Clicked(ui.openPad)) ShowPage(Page::Pad);
+            }
+            else if (ui.page == Page::Pad)
+            {
+                if (ui.extended && Clicked(ui.backToActions)) ShowPage(Page::Actions);
+                else if (Clicked(ui.enabled))
                 {
                     ui.values.padEnabled = !ui.values.padEnabled;
                     Caption(ui.enabled, ui.values.padEnabled ? text->on : text->off);

@@ -37,6 +37,7 @@ HEARTBEAT_INTERVAL = 5
 HEARTBEAT_TIMEOUT = 20
 HEARTBEAT_PING = b'P'
 HEARTBEAT_PONG = b'A'
+SCENE_BYTES = {'': b'N', 'town': b'T', 'dungeon': b'D'}
 GAME_PORT = 7001
 LOOPBACK = '127.0.0.1'
 INVITE_PATTERN = re.compile(
@@ -208,6 +209,15 @@ class RoomGuest:
     def __init__(self, identity):
         self.identity = identity
         self.tunnels = set()
+        self.scene_writer = self.scene_owner = None
+        self.scene = ''
+
+    def show_scene(self, owner, scene):
+        if self.scene_owner is not owner or self.scene_writer is None or self.scene_writer.is_closing():
+            return
+        if self.scene != scene:
+            self.scene = scene
+            self.scene_writer.write(SCENE_BYTES[scene])
 
     def close(self):
         for writer in self.tunnels:
@@ -336,6 +346,8 @@ class RoomHost:
         ticket = secrets.token_urlsafe(32)
         guest = RoomGuest(identity)
         heartbeat = request.get('heartbeat') is True
+        if heartbeat and request.get('inputScene') is True:
+            guest.scene_writer = writer
         try:
             try:
                 login, secret = await to_thread(guest_credentials, self.profiles, identity, name)
@@ -343,7 +355,8 @@ class RoomHost:
                 raise RoomError('lan_guest_account_error') from None
             self.guests[ticket] = guest
             await write_message(writer, {'ok': True, 'account': login, 'secret': secret, 'ticket': ticket,
-                                         'tcp': sorted(tcp), 'udp': sorted(udp), 'heartbeat': heartbeat})
+                                         'tcp': sorted(tcp), 'udp': sorted(udp), 'heartbeat': heartbeat,
+                                         'inputScene': guest.scene_writer is not None})
             if heartbeat:
                 await self.monitor_guest(reader, writer)
             else:
@@ -379,13 +392,13 @@ class RoomHost:
         guest.tunnels.add(writer)
         try:
             if kind == 'tcp':
-                await self.tcp_tunnel(port, reader, writer)
+                await self.tcp_tunnel(port, reader, writer, guest)
             else:
                 await self.udp_tunnel(port, reader, writer)
         finally:
             guest.tunnels.discard(writer)
 
-    async def tcp_tunnel(self, port, reader, writer):
+    async def tcp_tunnel(self, port, reader, writer, guest):
         try:
             upstream, server = await asyncio.open_connection(LOOPBACK, port)
         except OSError:
@@ -397,7 +410,9 @@ class RoomHost:
             else:
                 # The guest uses its existing authenticated game connection.
                 # It shares quest replies without becoming a local editor session.
-                await Session(None, reader, writer, port).relay_channel(upstream, server)
+                guest.scene_owner = writer
+                guest.show_scene(writer, '')
+                await Session(None, reader, writer, port, lambda scene: guest.show_scene(writer, scene)).relay_channel(upstream, server)
         finally:
             await close_writer(server)
 

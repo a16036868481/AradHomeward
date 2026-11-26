@@ -53,7 +53,7 @@ $taskData=Get-Content -LiteralPath $taskManifestPath -Raw -Encoding UTF8 | Conve
 foreach($taskFile in @('阿拉德·归途.exe','备用关闭.exe','归途修改器.exe','DNF60控制台.exe','启动检查.exe','DNF60_ACT12/ACT12/开始游戏.exe')){
     $taskData.runtimeHashes.PSObject.Properties.Remove($taskFile)
 }
-foreach($taskFile in @('AradHomeward.exe','AradTrainer.exe','CheckStartup.exe','StopAll.exe','DNF60_ACT12/ACT12/LegacyLauncher.exe','trainer/lan_room.py','trainer/lan_guest.py','trainer/lan_network.py','trainer/runtime_compat.py','trainer/login_service.py')){
+foreach($taskFile in @('AradHomeward.exe','AradTrainer.exe','CheckStartup.exe','StopAll.exe','DNF60_ACT12/ACT12/LegacyLauncher.exe','trainer/lan_room.py','trainer/lan_guest.py','trainer/lan_network.py','trainer/runtime_compat.py','trainer/login_service.py','trainer/input_scene.py')){
     $taskData.runtimeHashes | Add-Member -NotePropertyName $taskFile -NotePropertyValue '' -Force
 }
 foreach($taskEntry in $taskData.runtimeHashes.PSObject.Properties){

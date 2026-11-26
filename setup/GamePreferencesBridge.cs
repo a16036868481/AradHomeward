@@ -4,15 +4,20 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows.Forms;
 
 internal sealed class GamePreferencesBridge : ApplicationContext
 {
     private const string EndpointProperty = "AradHomeward.GamePreferences";
+    private const string RepeatProperty = "AradHomeward.HoldRepeat";
+    private const string TownProperty = "AradHomeward.TownPace";
     private const int CopyDataMessage = 0x004a, Packet = 0x41524832, FirstBinding = 3, DefaultBinding = 0x100;
     private static readonly int ReadMessage = RegisterWindowMessage("AradHomeward.GamePreferences.v1");
     private readonly Process game;
     private readonly string root;
+    private readonly string sceneEvent;
     private readonly Action<GamePlaySettings> apply;
     private readonly Timer timer = new Timer { Interval = 100 };
     private readonly Endpoint endpoint;
@@ -32,11 +37,17 @@ internal sealed class GamePreferencesBridge : ApplicationContext
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetProp(IntPtr window, string name);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool SetProp(IntPtr window, string name, IntPtr value);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr RemoveProp(IntPtr window, string name);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr OpenEvent(uint access, bool inherit, string name);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
 
     internal GamePreferencesBridge(Process game, string root, GamePlaySettings initial, Action<GamePlaySettings> apply)
     {
         this.game = game;
         this.root = root;
+        string path = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar).ToLowerInvariant();
+        using (var sha = SHA256.Create())
+            sceneEvent = "Local\\AradHomeward.Input." + BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(path)),
+                0, 12).Replace("-", "").ToLowerInvariant() + ".";
         current = initial;
         this.apply = apply;
         endpoint = new Endpoint(this);
@@ -50,17 +61,46 @@ internal sealed class GamePreferencesBridge : ApplicationContext
         if (game.HasExited) { ExitThread(); return; }
         game.Refresh();
         IntPtr window = game.MainWindowHandle;
-        if (window == viewport) return;
-        Disconnect();
-        if (ReadMessage != 0 && window != IntPtr.Zero && SetProp(window, EndpointProperty, endpoint.Handle))
-            viewport = window;
+        if (window != viewport)
+        {
+            Disconnect();
+            if (ReadMessage != 0 && window != IntPtr.Zero && SetProp(window, EndpointProperty, endpoint.Handle))
+                viewport = window;
+        }
+        if (viewport != IntPtr.Zero) PublishInput();
     }
 
     private void Disconnect()
     {
         if (viewport != IntPtr.Zero && GetProp(viewport, EndpointProperty) == endpoint.Handle)
+        {
+            RemoveProp(viewport, RepeatProperty);
+            RemoveProp(viewport, TownProperty);
             RemoveProp(viewport, EndpointProperty);
+        }
         viewport = IntPtr.Zero;
+    }
+
+    private void PublishInput()
+    {
+        bool dungeon = (current.RepeatRate != 0 || current.TownSpeed != 100) && InScene("dungeon");
+        SetInputValue(RepeatProperty, dungeon && current.RepeatRate != 0 ? (current.RepeatRate << 8) | (int)current.RepeatKey : 0);
+        SetInputValue(TownProperty, !dungeon && current.TownSpeed != 100 && InScene("town") ? current.TownSpeed : 0);
+    }
+
+    private bool InScene(string name)
+    {
+        IntPtr handle = OpenEvent(0x00100000, false, sceneEvent + name);
+        if (handle == IntPtr.Zero) return false;
+        CloseHandle(handle);
+        return true;
+    }
+
+    private void SetInputValue(string name, int value)
+    {
+        if (GetProp(viewport, name) == new IntPtr(value)) return;
+        if (value == 0) RemoveProp(viewport, name);
+        else SetProp(viewport, name, new IntPtr(value));
     }
 
     private int Read(int field)
@@ -70,6 +110,10 @@ internal sealed class GamePreferencesBridge : ApplicationContext
         if (field == 2) return current.GamepadEnabled ? 2 : 1;
         if (field >= FirstBinding && field < FirstBinding + current.Bindings.Length)
             return (int)current.Bindings[field - FirstBinding] + 1;
+        int travel = FirstBinding + current.Bindings.Length;
+        if (field == travel) return current.TownSpeed + 1;
+        if (field == travel + 1) return current.RepeatRate + 1;
+        if (field == travel + 2) return (int)current.RepeatKey + 1;
         if (field >= DefaultBinding && field < DefaultBinding + defaults.Bindings.Length)
             return (int)defaults.Bindings[field - DefaultBinding] + 1;
         return 0;
@@ -80,9 +124,11 @@ internal sealed class GamePreferencesBridge : ApplicationContext
         if (message == IntPtr.Zero) return false;
         var data = (CopyData)Marshal.PtrToStructure(message, typeof(CopyData));
         var next = new GamePlaySettings();
-        int length = FirstBinding + next.Bindings.Length;
-        if (data.Tag != new IntPtr(Packet) || data.Length != length * sizeof(int) || data.Data == IntPtr.Zero)
+        int travel = FirstBinding + next.Bindings.Length;
+        bool extended = data.Length == (travel + 3) * sizeof(int);
+        if (data.Tag != new IntPtr(Packet) || (!extended && data.Length != travel * sizeof(int)) || data.Data == IntPtr.Zero)
             return false;
+        int length = data.Length / sizeof(int);
         var values = new int[length];
         Marshal.Copy(data.Data, values, 0, length);
         if (!Enum.IsDefined(typeof(GameDisplayMode), values[0]) || !GamePlaySettings.WindowScales.Contains(values[1]) ||
@@ -90,6 +136,11 @@ internal sealed class GamePreferencesBridge : ApplicationContext
         next.DisplayMode = (GameDisplayMode)values[0];
         next.WindowScale = values[1];
         next.GamepadEnabled = values[2] != 0;
+        next.TownSpeed = extended ? values[travel] : current.TownSpeed;
+        next.RepeatRate = extended ? values[travel + 1] : current.RepeatRate;
+        next.RepeatKey = extended ? (Keys)values[travel + 2] : current.RepeatKey;
+        if (!GamePlaySettings.TownSpeeds.Contains(next.TownSpeed) || !GamePlaySettings.RepeatRates.Contains(next.RepeatRate) ||
+            !GamePlaySettings.CanRepeat(next.RepeatKey)) return false;
         for (int i = 0; i < next.Bindings.Length; i++)
         {
             var key = (Keys)values[FirstBinding + i];
@@ -97,11 +148,13 @@ internal sealed class GamePreferencesBridge : ApplicationContext
             next.Bindings[i] = key;
         }
         if (current.DisplayMode == next.DisplayMode && current.WindowScale == next.WindowScale &&
+            current.TownSpeed == next.TownSpeed && current.RepeatRate == next.RepeatRate && current.RepeatKey == next.RepeatKey &&
             current.GamepadEnabled == next.GamepadEnabled && current.Bindings.SequenceEqual(next.Bindings)) return true;
         try { next.Save(root); }
         catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }
         current = next;
+        PublishInput();
         apply(next);
         return true;
     }

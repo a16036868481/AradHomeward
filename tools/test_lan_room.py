@@ -231,6 +231,31 @@ class LanRoomTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await recovered.join('Guest'), first)
             self.assertEqual(credentials.call_args_list[0], credentials.call_args_list[1])
 
+    async def test_input_scene_is_scoped_to_the_current_guest_channel(self):
+        async with AsyncExitStack() as resources:
+            room, _, _, _ = await self.open_room(resources)
+            guest = lan_guest.GuestConnection(room.profiles.root, room.invite)
+            await guest.join('Scene QA')
+            resources.push_async_callback(guest.close)
+            seen = asyncio.Queue()
+            self.assertIsNotNone(guest.scene)
+            guest.scene.set = seen.put_nowait
+            monitor = asyncio.create_task(guest.wait_for_room_loss())
+            host_guest = room.guests[guest.ticket]
+            first, second = object(), object()
+            host_guest.scene_owner = first
+            host_guest.show_scene(first, 'town')
+            self.assertEqual(await asyncio.wait_for(seen.get(), 2), 'town')
+            host_guest.scene_owner = second
+            host_guest.show_scene(second, 'dungeon')
+            host_guest.show_scene(first, '')
+            self.assertEqual(await asyncio.wait_for(seen.get(), 2), 'dungeon')
+            host_guest.show_scene(second, 'town')
+            self.assertEqual(await asyncio.wait_for(seen.get(), 2), 'town')
+            await guest.close()
+            await asyncio.wait_for(monitor, 2)
+            self.assertEqual(await asyncio.wait_for(seen.get(), 2), '')
+
     async def test_lost_heartbeat_reply_notifies_guest_with_socket_open(self):
         async with AsyncExitStack() as resources:
             resources.enter_context(patch.object(lan_guest, 'HEARTBEAT_INTERVAL', .05))

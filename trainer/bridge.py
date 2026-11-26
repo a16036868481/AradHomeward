@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from assets import GAME, u32
 from pet_evolution import EVOLUTIONS
 from relay_config import relay_tcp_port
+from input_scene import InputScene
 
 DB = GAME/'ACT12_Server'/'dnf_a12.sqlite'
 KEY = b'7:;:78675;51;385'
@@ -128,13 +129,18 @@ async def forward_until_closed(client_to_server, server_to_client):
 
 
 class Session:
-    def __init__(self,bridge,reader,writer,port):
+    def __init__(self,bridge,reader,writer,port,scene_changed=None):
         self.bridge,self.reader,self.writer,self.port=bridge,reader,writer,port
         self.server_reader=self.server_writer=None
         self.lock=asyncio.Lock(); self.operation_lock=asyncio.Lock()
         self.seq=0; self.account_id=0; self.character_id=0; self.pending_character=0; self.actor_id=0
         self.pending={}; self.closed=False; self.in_dungeon=False
         self.pet_refresh = b''
+        self.scene_changed = scene_changed or (InputScene(GAME.parent).set if bridge else None)
+
+    def publish_scene(self):
+        if self.scene_changed:
+            self.scene_changed(('dungeon' if self.in_dungeon else 'town') if self.character_id else '')
 
     async def run(self):
         try:
@@ -192,7 +198,11 @@ class Session:
 
     async def relay_channel(self, reader, writer):
         self.server_reader, self.server_writer = reader, writer
-        await forward_until_closed(self.from_client(), self.from_server())
+        try:
+            await forward_until_closed(self.from_client(), self.from_server())
+        finally:
+            if self.scene_changed:
+                self.scene_changed('')
 
     async def from_client(self):
         while True:
@@ -231,7 +241,9 @@ class Session:
             with connect_db() as db:
                 rows=db.execute('select character_id from characters where account_id=? order by case when display_order<0 then slot_index else display_order end,slot_index limit 16',(self.account_id,)).fetchall()
             if body[0]<len(rows): self.pending_character=rows[body[0]][0]
-        elif id==7: self.character_id=0; self.in_dungeon=False; self.pet_refresh=b''
+        elif id==7:
+            self.character_id=0; self.in_dungeon=False; self.pet_refresh=b''
+            self.publish_scene()
 
     async def from_server(self):
         while True:
@@ -296,20 +308,24 @@ class Session:
             self.in_dungeon = False
             self.pet_refresh = b''
             LOG.info('local online character=%s account=%s', self.character_id, self.account_id)
+            self.publish_scene()
         elif opcode == 38 and body[:2] == b'\0\0':
             # The native server acknowledges area changes only after leaving a dungeon.
             self.in_dungeon = False
+            self.publish_scene()
 
     def observe_scene(self, opcode, body):
         if not self.character_id:
             return
         if opcode in DUNGEON_LOAD_NOTICES:
             self.in_dungeon = True
+            self.publish_scene()
         elif (opcode == 3 and len(body) >= 4 and body[0] == 1
               and struct.unpack_from('<H', body, 1)[0] == self.actor_id
               and body[3] in (0, 5)):
             # Town includes the player's private room and the siege-ghost state.
             self.in_dungeon = False
+            self.publish_scene()
 
     def complete_helper_reply(self, opcode, body):
         future = self.pending.pop(opcode, None)

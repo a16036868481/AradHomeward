@@ -20,6 +20,16 @@ internal sealed class GamePlaySettings
     internal int WindowScale = 100;
     internal GameDisplayMode DisplayMode;
     internal bool GamepadEnabled = true;
+    internal static readonly int[] TownSpeeds = { 100, 75, 50, 25 };
+    internal static readonly int[] RepeatRates = { 0, 4, 8, 12 };
+    internal int TownSpeed = 100;
+    internal int RepeatRate;
+    internal Keys RepeatKey = Keys.X;
+
+    internal static bool CanRepeat(Keys key)
+    {
+        return (key >= Keys.A && key <= Keys.Z) || (key >= Keys.D0 && key <= Keys.D9);
+    }
 
     // Movement, then X/A/Y/B on each shoulder layer, then Start and Back.
     internal readonly Keys[] Bindings =
@@ -58,6 +68,11 @@ internal sealed class GamePlaySettings
                 if (key == "GamepadEnabled" && (value == "0" || value == "1"))
                     settings.GamepadEnabled = value == "1";
                 if (key == "GamepadKeys") settings.LoadBindings(value);
+                int number;
+                if (!Int32.TryParse(value, out number)) continue;
+                if (key == "TownSpeed" && TownSpeeds.Contains(number)) settings.TownSpeed = number;
+                if (key == "RepeatRate" && RepeatRates.Contains(number)) settings.RepeatRate = number;
+                if (key == "RepeatKey" && CanRepeat((Keys)number)) settings.RepeatKey = (Keys)number;
             }
         }
         catch (IOException) { }
@@ -88,7 +103,10 @@ internal sealed class GamePlaySettings
             File.WriteAllLines(temporary, new[] { "[Gameplay]",
                 "WindowScale=" + WindowScale.ToString(CultureInfo.InvariantCulture),
                 "DisplayMode=" + ((int)DisplayMode).ToString(CultureInfo.InvariantCulture),
-                "GamepadEnabled=" + (GamepadEnabled ? "1" : "0"), "GamepadKeys=" + keys }, Encoding.ASCII);
+                "GamepadEnabled=" + (GamepadEnabled ? "1" : "0"), "GamepadKeys=" + keys,
+                "TownSpeed=" + TownSpeed.ToString(CultureInfo.InvariantCulture),
+                "RepeatRate=" + RepeatRate.ToString(CultureInfo.InvariantCulture),
+                "RepeatKey=" + ((int)RepeatKey).ToString(CultureInfo.InvariantCulture) }, Encoding.ASCII);
             if (File.Exists(file)) File.Replace(temporary, file, null);
             else File.Move(temporary, file);
         }
