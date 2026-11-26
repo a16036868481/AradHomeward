@@ -160,7 +160,7 @@ class Session:
             try:
                 await asyncio.wait_for(asyncio.gather(*(writer.wait_closed() for writer in writers),
                                                       return_exceptions=True), timeout=1)
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 pass
 
     async def entrance(self, address='127.0.0.2'):

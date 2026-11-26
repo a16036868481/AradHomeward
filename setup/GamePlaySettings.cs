@@ -6,9 +6,11 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
+internal enum GameDisplayMode { Windowed, Maximized, FullScreen }
+
 internal sealed class GamePlaySettings
 {
-    internal static readonly int[] WindowScales = { 100, 125, 150, 175, 200, 0 };
+    internal static readonly int[] WindowScales = { 100, 125, 150, 175, 200, 210, 225, 250, 275, 300, 320, 400, 450, 0 };
     internal static readonly Keys[] BindingChoices = new[] { Keys.None, Keys.Left, Keys.Right, Keys.Up, Keys.Down,
         Keys.Space, Keys.Enter, Keys.Escape, Keys.Tab, Keys.Home, Keys.End, Keys.PageUp, Keys.PageDown }
         .Concat(Enumerable.Range((int)Keys.A, 26).Select(key => (Keys)key))
@@ -16,6 +18,7 @@ internal sealed class GamePlaySettings
         .Concat(Enumerable.Range((int)Keys.F1, 12).Select(key => (Keys)key)).ToArray();
 
     internal int WindowScale = 100;
+    internal GameDisplayMode DisplayMode;
     internal bool GamepadEnabled = true;
 
     // Movement, then X/A/Y/B on each shoulder layer, then Start and Back.
@@ -48,6 +51,10 @@ internal sealed class GamePlaySettings
                 int scale;
                 if (key == "WindowScale" && Int32.TryParse(value, out scale) && WindowScales.Contains(scale))
                     settings.WindowScale = scale;
+                int mode;
+                if (key == "DisplayMode" && Int32.TryParse(value, out mode) &&
+                    mode >= (int)GameDisplayMode.Windowed && mode <= (int)GameDisplayMode.FullScreen)
+                    settings.DisplayMode = (GameDisplayMode)mode;
                 if (key == "GamepadEnabled" && (value == "0" || value == "1"))
                     settings.GamepadEnabled = value == "1";
                 if (key == "GamepadKeys") settings.LoadBindings(value);
@@ -80,6 +87,7 @@ internal sealed class GamePlaySettings
         {
             File.WriteAllLines(temporary, new[] { "[Gameplay]",
                 "WindowScale=" + WindowScale.ToString(CultureInfo.InvariantCulture),
+                "DisplayMode=" + ((int)DisplayMode).ToString(CultureInfo.InvariantCulture),
                 "GamepadEnabled=" + (GamepadEnabled ? "1" : "0"), "GamepadKeys=" + keys }, Encoding.ASCII);
             if (File.Exists(file)) File.Replace(temporary, file, null);
             else File.Move(temporary, file);

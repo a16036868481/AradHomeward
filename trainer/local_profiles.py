@@ -22,6 +22,8 @@ import threading
 import unicodedata
 import uuid
 
+from runtime_compat import file_sha256
+
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = '$a12$pbkdf2-sha256$600000$'
 
@@ -68,8 +70,7 @@ def copy_verified_save(database, target):
         tables = output.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('accounts','characters')").fetchone()
         if tables != (2,):
             raise sqlite3.DatabaseError('Save snapshot lacks game data tables')
-    with target.open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
+    return file_sha256(target)
 
 
 class ProfileStore:
@@ -275,14 +276,16 @@ class ProfileStore:
 def authenticate_local(root, login, secret):
     config = json.loads((Path(root)/'DNF60_ACT12'/'ACT12'/'config'/'registration.json').read_text(encoding='utf-8-sig'))
     pin = config.get('CertificateSha256', '').lower()
-    if config.get('Host') != '127.0.0.1' or config.get('Port') != 9999 or len(pin) != 64 or any(c not in '0123456789abcdef' for c in pin):
+    from login_service import LOGIN_PORTS
+    port = config.get('Port')
+    if config.get('Host') != '127.0.0.1' or port not in LOGIN_PORTS or len(pin) != 64 or any(c not in '0123456789abcdef' for c in pin):
         raise ValueError('本机登录服务配置无效')
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE  # Self-signed local service; pinned below before credentials are sent.
     try:
-        with socket.create_connection(('127.0.0.1', 9999), timeout=12) as raw:
+        with socket.create_connection(('127.0.0.1', port), timeout=12) as raw:
             with context.wrap_socket(raw, server_hostname='localhost') as tls:
                 actual = hashlib.sha256(tls.getpeercert(binary_form=True)).hexdigest()
                 if not hmac.compare_digest(actual, pin):

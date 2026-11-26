@@ -33,8 +33,11 @@ internal static class StartupDiagnostics
 #if PORTABLE
         "StopAll.exe",
 #endif
-        "runtime\\python\\python.exe", "runtime\\python\\pythonw.exe", "runtime\\python\\python314.dll", "runtime\\python\\python314.zip", "runtime\\python\\python314._pth",
-        "trainer\\server.py", "trainer\\local_profiles.py", "trainer\\catalog.json", "trainer\\growth.json",
+        "runtime\\python\\python.exe", "runtime\\python\\pythonw.exe",
+        "runtime\\python\\" + InstallPrograms.PythonTag + ".dll",
+        "runtime\\python\\" + InstallPrograms.PythonTag + ".zip",
+        "runtime\\python\\" + InstallPrograms.PythonTag + "._pth",
+        "trainer\\server.py", "trainer\\local_profiles.py", "trainer\\runtime_compat.py", "trainer\\catalog.json", "trainer\\growth.json",
         "DNF60_ACT12\\ACT12\\DNF.exe", "DNF60_ACT12\\ACT12\\" + InstallPrograms.LegacyLauncher, "DNF60_ACT12\\ACT12\\netapi32.dll", "DNF60_ACT12\\ACT12\\a12_profiles.dll", "DNF60_ACT12\\ACT12\\a12_account_fix.dll",
         "DNF60_ACT12\\ACT12\\version.dll", "DNF60_ACT12\\ACT12\\Tenio\\TenBase.dll", "DNF60_ACT12\\ACT12\\Tenio\\TenFact.dll",
         "DNF60_ACT12\\ACT12\\Script.pvf", "DNF60_ACT12\\ACT12\\ui\\layout\\QQLogin.xml",
@@ -51,14 +54,7 @@ internal static class StartupDiagnostics
         {
             if(!Directory.Exists(Path.Combine(Root,"DNF60_ACT12")))
                 throw new InvalidOperationException("请完整解压游戏包，在解压目录里运行 " + InstallPrograms.Diagnostics + "。");
-            Check("windowsRequirements",()=>{
-                using(var key=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
-                {
-                    int build;Int32.TryParse(Convert.ToString(key==null?null:key.GetValue("CurrentBuildNumber")),out build);
-                    if(!Environment.Is64BitOperatingSystem||build<10240)throw new NotSupportedException("当前便携包需要 Windows 10/11 64 位，检测到 Windows build="+build+"，64位="+Environment.Is64BitOperatingSystem+"。");
-                    return new {windowsBuild=build,is64BitWindows=true};
-                }
-            });
+            Check("windowsRequirements",()=>new {windowsBuild=InstallPrograms.VerifyWindows(),is64BitWindows=true});
             Check("requiredFiles",()=>{
 #if PORTABLE
                 InstallPrograms.EnsureLocalIdentity(Root, Path.Combine(Root,"runtime","python","python.exe"));
@@ -88,10 +84,11 @@ internal static class StartupDiagnostics
             Check("packageFiles",VerifyManifest);
             Check("bundledRuntime",()=>RunProbe());
             Check("loginRuntime",()=>RunProcess(Path.Combine(Root,"DNF60_ACT12","ACT12_Server","login_service","a12_registration_server.exe"),"--runtime-info",null,30000));
+            Check("loginPortOwners",()=>InstallPrograms.LoginCommand(Root,Path.Combine(Root,"runtime","python","python.exe"),"inspect"));
             var ports=IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners()
                 .Where(p=>new[]{7001,9999,8080,8787}.Contains(p.Port)).Select(p=>new{address=p.Address.ToString(),port=p.Port}).ToArray();
             var state=new Dictionary<string,object>();
-            foreach(string name in new[]{"control-result.json","startup-state.json","launch-plan.json","portable-check.json","account-window-state.json","session-lifecycle.json"})
+            foreach(string name in new[]{"login-startup.json","control-result.json","startup-state.json","launch-plan.json","portable-check.json","account-window-state.json","session-lifecycle.json"})
                 try {string path=Path.Combine(Root,"logs",name);if(File.Exists(path))state[name]=Json.DeserializeObject(File.ReadAllText(path,Encoding.UTF8));}catch{}
             object system;
             using(var os=Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
@@ -156,7 +153,7 @@ internal static class StartupDiagnostics
         string script;
         using(var resource=Assembly.GetExecutingAssembly().GetManifestResourceStream("startup_probe.py"))
         using(var reader=new StreamReader(resource,Encoding.UTF8))script=reader.ReadToEnd();
-        return RunProcess(Path.Combine(Root,"runtime","python","python.exe"),"-",script,90000);
+        return RunProcess(Path.Combine(Root,"runtime","python","python.exe"),"-I -B -",script,90000);
     }
 
     private static object ApplicationErrors()

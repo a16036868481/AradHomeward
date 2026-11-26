@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Extract the whole `AradHomeward-v2.6.0-preview.38-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
+Extract the whole `AradHomeward-v2.6.0-preview.39-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
 
-Keep the extracted files and folders together. The package requires Windows 10 or 11 x64.
+Keep the extracted files and folders together. The standard package requires Windows 10 (1607 or later) or Windows 11 x64.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.38-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.39-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Choose a mode and create a local account
 
@@ -24,11 +24,9 @@ The local server creates the internal credentials automatically. Keep the extrac
 
 ## 3. Choose a language and start playing
 
-Open **Display & controller** at the bottom right of the launcher to change window size or controller bindings. The default window size is 960 × 720. Other choices are 640 × 480, 800 × 600, 1120 × 840, 1280 × 960 and **Fit to screen**. The game keeps a 4:3 aspect ratio.
+In the game, open **System menu → Settings** from the bottom bar. Choose **Window size** and select **Save**. The 13 presets keep the game at 4:3, from 640 × 480 to 2880 × 2160. Larger sizes include 1344 × 1008, 1440 × 1080, 1600 × 1200, 1760 × 1320, 1920 × 1440, 2048 × 1536, 2560 × 1920 and 2880 × 2160. **Fit to screen** uses the available space automatically. The chat pane scales with the game, and oversized presets shrink to fit both windows on the desktop. Maximized mode uses the available desktop area and full-screen mode uses the whole monitor. Switching back to windowed mode restores the selected preset.
 
-On an Xbox or other XInput controller, use the left stick or D-pad to move, **X** to attack, **A** to jump and **Y** to use a skill. Hold **LB**, **RB** or both while pressing a face button to use more shortcuts. Save your choices and start the game to apply them.
-
-![Window size and controller bindings](images/display-controller-en-US.png)
+The original panel also contains the audio sliders, invitation preferences and recording format. Select **Gamepad** at the bottom of the same window to configure an Xbox or other XInput controller. Click a binding and press the keyboard key you want to assign. Press **Delete** to clear a binding. By default the left stick or D-pad moves, **X** attacks, **A** jumps and **Y** uses a skill. Hold **LB**, **RB** or both while pressing a face button for more shortcuts. Select **Save** to apply your changes.
 
 Choose a saved account and select **Play solo**. The launcher remembers your selection. Use **New account** to create another local account.
 
@@ -86,6 +84,7 @@ To move your progress, exit normally on both PCs and copy the **entire extracted
 | Missing files, no window, or instant exit | Extract the entire ZIP again to a short writable path and check the archive hash. Keep all folders together. |
 | The mode selection window does not appear | Run `AradHomeward.exe` from the extraction folder. For troubleshooting use `CheckStartup.exe` and collect `logs/startup-check.json` and `logs/startup-state.json` if present. |
 | Game service fails to start | Run **CheckStartup.exe** and inspect its report and `DNF60_ACT12/ACT12_Server/server_log.txt`. The relay preflight can select a free local port when 5555 is unavailable. |
+| A different program uses 8080 or 9999 | The launcher selects a free local management or login port. Check `loginPortOwners` in `logs/startup-check.json` for the programs listening on the defaults and `logs/login-startup.json` for the selected ports or startup error code. |
 | Login identity is incomplete or mismatched | Restore the complete installation from its backup. Do not copy certificates from another unrelated installation or disable certificate validation. |
 | Some text is still in the original language | Exit, choose the language again and relaunch. Report the language, screen and an image; some original resources remain in this preview. |
 | Trainer has no selected character | Enter the character in the game, wait for services to be ready, then use **Switch character**. |

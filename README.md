@@ -4,9 +4,9 @@
 
 A portable Windows ACT12 / level-60 local game package with a name-only account launcher, a native desktop trainer, and five display languages. Custom launcher, trainer and localization work by **eirros**.
 
-**[Windows download](https://github.com/a16036868481/AradHomeward/releases/tag/v2.6.0-preview.38)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
+**[Windows download](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-`AradHomeward-v2.6.0-preview.38-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
+`AradHomeward-v2.6.0-preview.39-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
 
 Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 
@@ -20,7 +20,7 @@ Extract into a new folder to try the release while preserving any existing insta
 4. Select the saved account, click **Play solo**, then create or choose a character.
 5. The game and **Arad Trainer** open together. Background services remain hidden. Choose **End Game** inside the game to close the related tools and services and save a backup.
 
-Windows 10/11 **64-bit** is required for this package. Python and the trainer's dependencies are included. No cloud account, database installation or separate Python installation is needed.
+The standard package requires **Windows 10 (1607 or later) or Windows 11, 64-bit**. Python and the trainer's dependencies are included. No cloud account, database installation or separate Python installation is needed.
 
 ## Included features
 
@@ -36,9 +36,9 @@ Windows 10/11 **64-bit** is required for this package. Python and the trainer's 
 
 ## Current release status
 
-**v2.6.0-preview.38** uses the same host and join flow on Wi-Fi, Ethernet and virtual LANs such as Radmin VPN. Update both players to use the new invitations. [Save migration guide](docs/LAN.md#upgrade-and-keep-saves)
+**v2.6.0-preview.39** adds eight window sizes up to 2880 × 2160. The side chat scales with the game. At sign-in the launcher selects available local ports when the defaults are in use.
 
-**v2.6.0-preview.36** adds **Display & controller** to the launcher. The game starts at 960 × 720 in windowed mode. Choose the original size, a larger preset or **Fit to screen**. Xbox and other XInput controllers support movement, combat and configurable skill shortcuts. Saved settings apply the next time the game starts.
+Open **System menu → Settings** from the game's bottom bar. The original panel includes **Window size**. Select **Gamepad** in the same panel to enable a controller or set its bindings. Use **Save** to apply the changes in game.
 
 The first-use game mixer remains one quarter of the current Windows output volume. After a LAN disconnect, **Rejoin room** opens with the previous invitation and player name.
 

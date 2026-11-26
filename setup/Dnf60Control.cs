@@ -72,14 +72,6 @@ internal static partial class Dnf60Control
             catch(System.ComponentModel.Win32Exception error){Log("SESSION game process unavailable: "+error.NativeErrorCode);}
             return 0;
         }
-        if(action=="play-settings")
-        {
-            LanguageSupport.Load(Root);
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            using(var options=new GamePlayOptions(Root))options.ShowDialog();
-            return 0;
-        }
         if(action=="lan-room")
         {
             try { ShowLanHost(); return 0; }
@@ -153,7 +145,8 @@ internal static partial class Dnf60Control
         using (ControlLocks.Shared.Operation())
         {
             Log("BEGIN " + action);
-            if (action == "server-only" || action == "gm") StartServices();
+            if (action == "server-only" || action == "gm" || action == "legacy-services") StartServices(action!="legacy-services");
+            if (action == "login-only") {EnsureLocalIdentity();LoginCommand("ensure");}
             if (action == "start")
             {
                 if(HasGameClient())
@@ -179,7 +172,7 @@ internal static partial class Dnf60Control
             else if (action == "management-restart") RestartManagement();
             else if (action == "gm") Launch(TrainerExecutable, "--online", Root, false);
             else if (action == "folder") Process.Start(new ProcessStartInfo(Game) { UseShellExecute = true });
-            else if (action != "server-only") throw new ArgumentException("未知操作。");
+            else if (action != "server-only" && action != "legacy-services" && action != "login-only") throw new ArgumentException("未知操作。");
             if(originalStarted==null&&compatibleStarted==null){Log("DONE " + action);Result(action, true, Status());}
         }
         if(originalStarted!=null)
@@ -250,7 +243,7 @@ internal static partial class Dnf60Control
         {
             if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(TrainerExecutable,"--profile-selected",Root,false);return;}
             AccountStage("native-account-ui-opening","正在打开本机账号选择窗口。");
-            LocalAccountWindow.SetThreadDpiAwarenessContext(new IntPtr(-1));
+            GameWindow.TrySetDpiContext(new IntPtr(-1));
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new LocalAccountWindow(IntPtr.Zero,0,ProfileRequest,StartProfileSession,
                 ()=>{AccountStage("native-account-pane-visible","账号选择窗口已显示。");ready.Set();}));
@@ -296,7 +289,7 @@ internal static partial class Dnf60Control
         using(var ready=new EventWaitHandle(false,EventResetMode.ManualReset,LauncherStartupMonitor.ReadyEvent(pid)))
         {
             if(HasGameClient()){if(LanGuestRunning())ForegroundGame();else Launch(TrainerExecutable,"--profile-selected",Root,false);PostMessage(parent,0x0010,IntPtr.Zero,IntPtr.Zero);return;}
-            LocalAccountWindow.SetThreadDpiAwarenessContext(new IntPtr(-1));
+            GameWindow.TrySetDpiContext(new IntPtr(-1));
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new LocalAccountWindow(parent,pid,ProfileRequest,StartProfileSession,()=>{AccountStage("account-pane-visible","账号选择窗口已显示。");ready.Set();}));
         }
@@ -392,15 +385,15 @@ internal static partial class Dnf60Control
     {
         var settings=GamePlaySettings.Load(Root);
         int pid=game.Id;
-        var monitors=new List<Task>
+        var monitors=new[]
         {
-            Task.Run(()=>RunGameMonitor(pid,"AUDIO",target=>GameVolume.Monitor(target,Root,Log)))
+            Task.Run(()=>RunGameMonitor(pid,"AUDIO",target=>GameVolume.Monitor(target,Root,Log))),
+            Task.Run(()=>RunGameMonitor(pid,"DISPLAY",target=>GameWindow.Monitor(target,()=>Volatile.Read(ref settings),Log))),
+            Task.Run(()=>RunGameMonitor(pid,"INPUT",target=>GamepadInput.Monitor(target,()=>Volatile.Read(ref settings),Log)))
         };
-        if(settings.WindowScale!=100)
-            monitors.Add(Task.Run(()=>RunGameMonitor(pid,"DISPLAY",target=>GameWindow.Monitor(target,settings.WindowScale,Log))));
-        if(settings.GamepadEnabled)
-            monitors.Add(Task.Run(()=>RunGameMonitor(pid,"INPUT",target=>GamepadInput.Monitor(target,settings,Log))));
-        Task.WaitAll(monitors.ToArray());
+        using(var options=new GamePreferencesBridge(game,Root,settings,updated=>Volatile.Write(ref settings,updated)))
+            Application.Run(options);
+        Task.WaitAll(monitors);
     }
 
     private static void RunGameMonitor(int pid,string name,Action<Process> monitor)
@@ -435,15 +428,37 @@ internal static partial class Dnf60Control
 #endif
     }
 
-    private static void StartServices()
+    private static void LoginCommand(string command)
+    {
+        string python=Path.Combine(Path.GetDirectoryName(PythonRuntime()),"python.exe");
+        InstallPrograms.LoginCommand(Root,python,command);
+    }
+
+    private static bool LoginReady()
+    {
+        try
+        {
+            string state=Path.Combine(LogDir,"login-ports.json");
+            if(!File.Exists(state))return false;
+            var data=new JavaScriptSerializer().Deserialize<Dictionary<string,object>>(File.ReadAllText(state));
+            int login=Convert.ToInt32(data["loginPort"]),management=Convert.ToInt32(data["managementPort"]);
+            if((login!=9999&&(login<19099||login>19114))||(management!=8080&&(management<18080||management>18095)))return false;
+            using(var child=Process.GetProcessById(Convert.ToInt32(data["pid"])))
+                return !child.HasExited && String.Equals(child.MainModule.FileName,Path.Combine(Server,"login_service","a12_registration_server.exe"),StringComparison.OrdinalIgnoreCase)
+                       && Open(login) && Open(management);
+        }
+        catch(Exception){return false;}
+    }
+
+    private static void StartServices(bool startTrainer=true)
     {
         EnsureLocalIdentity();
-        foreach (string file in new[] { Path.Combine(Server, "a12_compat_launcher.exe"), Path.Combine(Server, "a12_server.exe"), LauncherExecutable, Path.Combine(Server, "dnf_a12.sqlite") })
+        foreach (string file in new[] { Path.Combine(Server, "a12_server.exe"), LauncherExecutable, Path.Combine(Server, "dnf_a12.sqlite") })
             if (!File.Exists(file)) throw new FileNotFoundException("缺少游戏文件：" + file);
         SetKeepManagement(false);
         ConfigureClientBridge();
         EnsureBackgroundHost();
-        if (BackendReady()) { StartTrainer(); return; }
+        if (BackendReady()) { if(startTrainer)StartTrainer(); return; }
         var servers = Owned(Server).Where(p => SafeName(p) == "a12_server").ToArray();
         if (servers.Length > 0 && !Open(7001))
         {
@@ -451,20 +466,27 @@ internal static partial class Dnf60Control
             if (!Open(7001))
                 foreach (var p in servers) Graceful(p, 15000, "请先关闭未启动的服务端窗口。");
         }
-        if (!Owned(Server).Any(p => SafeName(p) == "a12_server"))
+        bool startGameServer=!Owned(Server).Any(p => SafeName(p) == "a12_server");
+        if(startGameServer && Open(7001))throw new InvalidOperationException("[GAME-PORT-7001] 7001 端口已被其他程序占用，请关闭占用程序后重试。");
+        LoginCommand("ensure");
+        if (startGameServer)
         {
-            if (Open(7001)) throw new InvalidOperationException("7001 端口已被其他程序占用，未改动该程序。");
-            StopOrphanRegistration();
             RelayPortPreflight.Ensure(Root);
-            Launch(Path.Combine(Server, "a12_compat_launcher.exe"), "--all", Server, true);
+            using(var gameServer=Launch(Path.Combine(Server, "a12_server.exe"), "--native-panel", Server, true))
+            {
+                var watch=Stopwatch.StartNew();
+                while(watch.ElapsedMilliseconds<100000 && !BackendReady())
+                    if(gameServer.WaitForExit(350))
+                        throw new InvalidOperationException("[GAME-SERVER-EXIT] 游戏服务提前退出（0x"+unchecked((uint)gameServer.ExitCode).ToString("X8")+"），请查看 server_log.txt。");
+            }
         }
-        var deadline = DateTime.UtcNow.AddSeconds(100);
-        while (DateTime.UtcNow < deadline)
+        else
         {
-            if (BackendReady()) { StartTrainer(); return; }
-            Thread.Sleep(400);
+            var watch=Stopwatch.StartNew();
+            while(watch.ElapsedMilliseconds<100000 && !BackendReady())Thread.Sleep(350);
         }
-        throw new InvalidOperationException("服务端未在预定时间内就绪。请查看修改器“运行状态与日志”中的记录。");
+        if(!BackendReady())throw new InvalidOperationException("[GAME-SERVER-TIMEOUT] 登录已就绪，游戏服务尚未就绪。请查看 server_log.txt。");
+        if(startTrainer)StartTrainer();
     }
 
     private static void StopAll(bool keepLauncher=false)
@@ -624,19 +646,8 @@ internal static partial class Dnf60Control
         }
         // The game's normal shutdown can close its login child. Keep the local
         // registration/management backend available for offline backup restores.
-        if(!Open(8080))
-        {
-            string login=Path.Combine(Server,"login_service");
-            Launch(Path.Combine(login,"a12_registration_server.exe"),"--config \""+Path.Combine(login,"registration.json")+"\"",login,true);
-            DateTime deadline=DateTime.UtcNow.AddSeconds(15);
-            while(!Open(8080)&&DateTime.UtcNow<deadline)Thread.Sleep(200);
-            if(!Open(8080))throw new InvalidOperationException("游戏已停止，但离线管理服务尚未就绪。");
-        }
-        var req=(HttpWebRequest)WebRequest.Create("http://127.0.0.1:8080/api/backups/create");
-        req.Method="POST";req.ContentType="application/json";req.Proxy=null;req.Timeout=30000;req.ReadWriteTimeout=30000;
-        byte[] payload=Encoding.UTF8.GetBytes("{}");req.ContentLength=payload.Length;
-        using(var stream=req.GetRequestStream())stream.Write(payload,0,payload.Length);
-        using(var response=req.GetResponse())using(var reader=new StreamReader(response.GetResponseStream(),Encoding.UTF8))Log("OFFLINE MANAGEMENT BACKUP "+reader.ReadToEnd());
+        LoginCommand("ensure");
+        LoginCommand("backup");
     }
 
     private static void StopOrphanRegistration()
@@ -652,10 +663,8 @@ internal static partial class Dnf60Control
 
     private static void RestartManagement()
     {
-        StopOrphanRegistration();string login=Path.Combine(Server,"login_service");
-        Launch(Path.Combine(login,"a12_registration_server.exe"),"--config \""+Path.Combine(login,"registration.json")+"\"",login,true);
-        DateTime deadline=DateTime.UtcNow.AddSeconds(15);while(!Open(8080)&&DateTime.UtcNow<deadline)Thread.Sleep(250);
-        if(!Open(8080))throw new InvalidOperationException("离线管理服务未就绪。");
+        StopOrphanRegistration();
+        LoginCommand("ensure");
     }
 
     private static Dictionary<string, object> TrainerInfo()
@@ -706,6 +715,9 @@ internal static partial class Dnf60Control
 
     private static string PythonRuntime()
     {
+#if PORTABLE
+        InstallPrograms.VerifyWindows();
+#endif
         string bundled=Path.Combine(Root,"runtime","python","pythonw.exe");
         if(File.Exists(bundled))return bundled;
 #if !PORTABLE
@@ -716,7 +728,8 @@ internal static partial class Dnf60Control
 
     private static void CheckPortableFiles()
     {
-        string[] required={InstallPrograms.Trainer,"trainer\\server.py","trainer\\local_profiles.py","trainer\\catalog.json","trainer\\growth.json","runtime\\python\\python314._pth","runtime\\python\\python314.zip","DNF60_ACT12\\ACT12\\"+InstallPrograms.LegacyLauncher,"DNF60_ACT12\\ACT12\\a12_profiles.dll","DNF60_ACT12\\ACT12_Server\\a12_server.exe","DNF60_ACT12\\ACT12_Server\\a12_compat_launcher.exe","DNF60_ACT12\\ACT12_Server\\dnf_a12.sqlite","DNF60_ACT12\\ACT12_Server\\login_service\\a12_registration_server.exe"};
+        string pythonBase=Path.Combine("runtime","python",InstallPrograms.PythonTag);
+        string[] required={InstallPrograms.Trainer,"trainer\\server.py","trainer\\local_profiles.py","trainer\\catalog.json","trainer\\growth.json",pythonBase+"._pth",pythonBase+".zip",pythonBase+".dll","DNF60_ACT12\\ACT12\\"+InstallPrograms.LegacyLauncher,"DNF60_ACT12\\ACT12\\a12_profiles.dll","DNF60_ACT12\\ACT12_Server\\a12_server.exe","DNF60_ACT12\\ACT12_Server\\a12_compat_launcher.exe","DNF60_ACT12\\ACT12_Server\\dnf_a12.sqlite","DNF60_ACT12\\ACT12_Server\\login_service\\a12_registration_server.exe"};
         var missing=required.Where(p=>!File.Exists(Path.Combine(Root,p))).ToArray();
         string python=PythonRuntime();
         var report=new Dictionary<string,object>{{"root",Root},{"python",python},{"bundledPython",String.Equals(python,Path.Combine(Root,"runtime","python","pythonw.exe"),StringComparison.OrdinalIgnoreCase)},{"missing",missing},{"is64BitWindows",Environment.Is64BitOperatingSystem},{"version",typeof(Dnf60Control).Assembly.GetName().Version.ToString()}};
@@ -751,12 +764,19 @@ internal static partial class Dnf60Control
         try
         {
             if (process.HasExited) return;
-            bool requested;
-            if(SafeName(process)=="a12_server"&&IsInside(process,Server))requested=ServerBackgroundContext.CloseInstalledServer(process.Id);
-            else if(String.Equals(process.MainModule.FileName,TrainerExecutable,StringComparison.OrdinalIgnoreCase))requested=ServerBackgroundContext.CloseInstalledTrainer(process.Id);
-            else requested=process.CloseMainWindow();
-            if (!requested || !process.WaitForExit(waitMs))
-                if (!process.HasExited) throw new InvalidOperationException(message);
+            bool server=SafeName(process)=="a12_server"&&IsInside(process,Server);
+            bool trainer=String.Equals(process.MainModule.FileName,TrainerExecutable,StringComparison.OrdinalIgnoreCase);
+            var watch=Stopwatch.StartNew();
+            // A newly started trainer can have helper windows before its main form exists.
+            while(!process.HasExited && watch.ElapsedMilliseconds<waitMs)
+            {
+                if(server)ServerBackgroundContext.CloseInstalledServer(process.Id);
+                else if(trainer)ServerBackgroundContext.CloseInstalledTrainer(process.Id);
+                else {process.Refresh();process.CloseMainWindow();}
+                int remaining=waitMs-(int)watch.ElapsedMilliseconds;
+                if(remaining>0 && process.WaitForExit(Math.Min(remaining,750)))return;
+            }
+            if(!process.HasExited)throw new InvalidOperationException(message);
         }
         catch (InvalidOperationException) { if (!process.HasExited) throw; }
     }
@@ -807,14 +827,14 @@ internal static partial class Dnf60Control
 
     private static bool BackendReady()
     {
-        return Owned(Server).Any(p => SafeName(p) == "a12_server") && Open(7001) && Open(9999) && Open(8080);
+        return Owned(Server).Any(p => SafeName(p) == "a12_server") && Open(7001) && LoginReady();
     }
 
     private static bool Ready() { return BackendReady() && TrainerReady(); }
 
     internal static string Status()
     {
-        return Ready() ? (Owned(Client).Length > 0 ? "游戏运行中 · 在线修改器已就绪" : "服务端及在线修改器已就绪") : (Owned(Server).Any(p=>SafeName(p)=="a12_server") ? "游戏服务运行中 · 修改器未就绪" : Open(8080)?"游戏已停止 · 离线管理可用":"游戏已关闭");
+        return Ready() ? (Owned(Client).Length > 0 ? "游戏运行中 · 在线修改器已就绪" : "服务端及在线修改器已就绪") : (Owned(Server).Any(p=>SafeName(p)=="a12_server") ? "游戏服务运行中 · 修改器未就绪" : LoginReady()?"游戏已停止 · 离线管理可用":"游戏已关闭");
     }
 
     private static string Escape(string value) { return value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n"); }
@@ -908,7 +928,9 @@ internal sealed class ServerBackgroundContext : ApplicationContext
     }
     private static bool Installed(IntPtr h,int expectedPid)
     {
-        var c=new StringBuilder(128);GetClassName(h,c,128);if(c.ToString()!="DNFServerUI")return false;
+        var c=new StringBuilder(128);GetClassName(h,c,128);
+        string serverClass=c.ToString();
+        if(serverClass!="DNFServerUI" && serverClass!="A12Win7NativeServerPanel")return false;
         uint pid;GetWindowThreadProcessId(h,out pid);if(expectedPid!=0&&pid!=expectedPid)return false;
         try{using(var p=Process.GetProcessById((int)pid))return String.Equals(p.MainModule.FileName,Path.Combine(Dnf60Control.Server,"a12_server.exe"),StringComparison.OrdinalIgnoreCase);}catch{return false;}
     }

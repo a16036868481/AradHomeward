@@ -12,8 +12,9 @@ from pet_evolution import EVOLUTIONS, install
 
 class PetEvolutionTests(unittest.TestCase):
     def setUp(self):
-        folder = self.enterContext(TemporaryDirectory())
-        path = Path(folder) / 'save.sqlite'
+        folder = TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        path = Path(folder.name) / 'save.sqlite'
         self.db = sqlite3.connect(path)
         self.addCleanup(self.db.close)
         self.db.executescript('''

@@ -29,8 +29,11 @@ def runtime():
         raise RuntimeError('Bundled Python is not isolated')
     if Path(sys.executable).resolve().parent != root/'runtime'/'python':
         raise RuntimeError('Python is not the bundled runtime')
-    if not all(Path(p).resolve().is_relative_to(root) for p in sys.path):
-        raise RuntimeError('Python imports include paths outside this game copy')
+    try:
+        for path in sys.path:
+            Path(path).resolve().relative_to(root)
+    except ValueError:
+        raise RuntimeError('Python imports include paths outside this game copy') from None
     return {'version': platform.python_version(), 'architecture': platform.machine(), 'isolated': True}
 
 

@@ -1,5 +1,12 @@
 # Changes
 
+## v2.6.0-preview.39 — 2026-11-27
+
+- The original in-game Settings panel now offers 13 fixed 4:3 window sizes plus Fit to screen. Eight new presets range from 1344 × 1008 to 2880 × 2160. The game remembers the chosen size and fits both the game and the side chat into the available desktop space.
+- The launcher can start local login and management services when another program occupies their default ports. Startup diagnostics record which ports were selected and identify certificate, database and service startup errors.
+- 游戏原版设置新增 8 档大窗口，最高 2880 × 2160。保存后重启会记住所选尺寸，右侧聊天框随主画面缩放。
+- 登录服务能在默认端口被占用时切换到可用端口。遇到启动问题，可在游戏目录下的 `logs/login-startup.json` 查看本次启动记录。
+
 ## v2.6.0-preview.38 — 2026-11-25
 
 - Hosting a room uses available local and virtual IPv4 networks automatically.

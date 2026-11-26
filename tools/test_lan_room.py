@@ -291,8 +291,8 @@ class LanRoomTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(room.status()['open'])
 
         adapter = lan_network.RoomInterface(5, IPv4Address('192.168.1.7'), False)
-        with (patch.object(lan_guest, 'room_interfaces', return_value=(adapter,)),
-              patch.object(asyncio.get_running_loop(), 'sock_connect') as dial):
+        with patch.object(lan_guest, 'room_interfaces', return_value=(adapter,)), \
+                patch.object(asyncio.get_running_loop(), 'sock_connect') as dial:
             for address in ('8.8.8.8', '26.73.14.21', '25.24.7.8'):
                 invite = f'arad://{address}:26060/{"a"*43}.{"0"*64}'
                 guest = lan_guest.GuestConnection(Path('.'), invite)

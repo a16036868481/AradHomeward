@@ -4,7 +4,7 @@
 import json, os, shutil, threading, time, uuid
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs, urlencode
-from urllib.request import urlopen
+from login_service import management_request
 from assets import ROOT, GAME
 from bridge import local_server_ports
 from local_profiles import copy_verified_save
@@ -85,8 +85,7 @@ class AdminService:
             raise ValueError('备份文件名无效')
         names=self.gm_api('/api/backups')
         if name not in names:raise ValueError('备份不存在')
-        with urlopen('http://127.0.0.1:8080/api/backups/download?'+urlencode({'name':name}),timeout=90) as response:
-            return response.read()
+        return management_request(ROOT,'/api/backups/download?'+urlencode({'name':name}),timeout=90,binary=True)
 
     def runtime(self):
         ports=sorted(local_server_ports()-{7001})

@@ -271,7 +271,8 @@ static DWORD WINAPI Initialize(void*)
     const BYTE newsSignature[] = {0x55,0x8B,0xEC,0x8B,0x45,0x0C,0x8B,0x4D,0x08,0x50,0x51};
     if (nt->OptionalHeader.SizeOfImage != 0x2C1F000 || memcmp(newsTarget, newsSignature, sizeof(newsSignature)))
     { Log("unsupported-client"); return 0; }
-    AradWindowInput::Install(image);
+    if (AradWindowInput::Install(image) && !AradGameSettings::Install(image, locale.c_str()))
+        Log("game-settings-bridge-unavailable");
     if (!InstallSeriaIntroductionHook(image)) Log("seria-introduction-hook-unavailable");
     localNews = OfflineNewsUrl(installation, locale);
     // Use the local welcome page with the original Chinese text and font path.

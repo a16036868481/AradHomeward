@@ -110,8 +110,15 @@ internal static class GamepadInput
     [StructLayout(LayoutKind.Sequential)]
     private struct Input { internal uint Type; internal InputFields Fields; }
 
-    [DllImport("xinput1_4.dll", ExactSpelling = true)]
-    private static extern uint XInputGetState(uint controller, out XInputState state);
+    private delegate uint ReadXInputState(uint controller, out XInputState state);
+    private static ReadXInputState readState = SelectXInput;
+
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState", ExactSpelling = true)]
+    private static extern uint ReadModernXInput(uint controller, out XInputState state);
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [DllImport("xinput9_1_0.dll", EntryPoint = "XInputGetState", ExactSpelling = true)]
+    private static extern uint ReadLegacyXInput(uint controller, out XInputState state);
     [DllImport("user32.dll", ExactSpelling = true)]
     private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll", ExactSpelling = true)]
@@ -122,8 +129,9 @@ internal static class GamepadInput
     private static extern uint SendInput(uint count, ref Input input, int size);
     private static readonly int InputSize = Marshal.SizeOf(typeof(Input));
 
-    internal static void Monitor(Process game, GamePlaySettings settings, Action<string> log)
+    internal static void Monitor(Process game, Func<GamePlaySettings> currentSettings, Action<string> log)
     {
+        var settings = currentSettings();
         var mapper = new GamepadBindings(settings.Bindings);
         var held = new HashSet<Keys>();
         var desired = new HashSet<Keys>();
@@ -134,14 +142,21 @@ internal static class GamepadInput
         {
             while (!game.HasExited)
             {
+                var updated = currentSettings();
+                if (!ReferenceEquals(updated, settings))
+                {
+                    settings = updated;
+                    mapper = new GamepadBindings(settings.Bindings);
+                    log("INPUT controller settings applied enabled=" + settings.GamepadEnabled);
+                }
                 uint foreground;
                 GetWindowThreadProcessId(GetForegroundWindow(), out foreground);
                 desired.Clear();
                 int interval = 16;
-                if (foreground != (uint)game.Id)
+                if (!settings.GamepadEnabled || foreground != (uint)game.Id)
                 {
                     mapper.Reset();
-                    interval = 48;
+                    interval = settings.GamepadEnabled ? 48 : 200;
                 }
                 else
                 {
@@ -185,18 +200,33 @@ internal static class GamepadInput
         }
     }
 
+    private static uint SelectXInput(uint controller, out XInputState state)
+    {
+        try
+        {
+            uint result = ReadModernXInput(controller, out state);
+            readState = ReadModernXInput;
+            return result;
+        }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
+
+        readState = ReadLegacyXInput;
+        return readState(controller, out state);
+    }
+
     private static bool ReadController(ref int controller, out XInputState state)
     {
         if (controller >= 0)
         {
-            if (XInputGetState((uint)controller, out state) == 0) return true;
+            if (readState((uint)controller, out state) == 0) return true;
             // Release any keys from this controller before selecting a different slot.
             controller = -1;
             return false;
         }
         for (int slot = 0; slot < 4; slot++)
         {
-            if (XInputGetState((uint)slot, out state) != 0) continue;
+            if (readState((uint)slot, out state) != 0) continue;
             controller = slot;
             return true;
         }

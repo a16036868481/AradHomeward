@@ -1,8 +1,8 @@
 {
-  "version": "2.6.0-preview.38",
-  "checkedOn": "2026-11-25",
-  "automatedTestsPassed": 17,
-  "startupDiagnosticChecksPassed": 7,
+  "version": "2.6.0-preview.39",
+  "checkedOn": "2026-11-27",
+  "automatedTestsPassed": 28,
+  "startupDiagnosticChecksPassed": 8,
   "languagePackHashesVerified": [
     "zh-Hans",
     "zh-Hant",
@@ -17,8 +17,19 @@
   },
   "launcherModes": {
     "checkedIn": "2.6.0-preview.33",
-    "layoutLanguages": ["zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR"],
-    "layoutScreens": ["mode selection", "multiplayer", "new account", "saved accounts"],
+    "layoutLanguages": [
+      "zh-Hans",
+      "zh-Hant",
+      "en-US",
+      "ja-JP",
+      "ko-KR"
+    ],
+    "layoutScreens": [
+      "mode selection",
+      "multiplayer",
+      "new account",
+      "saved accounts"
+    ],
     "nativeWindowsChecks": [
       "mode selection in the original and compatibility launcher windows",
       "saved account started a solo session and reached channel selection",
@@ -28,11 +39,33 @@
   },
   "windowAndController": {
     "checkedIn": "2.6.0-preview.36",
-    "settingsViewAndSaveLanguages": ["zh-Hans", "zh-Hant", "en-US", "ja-JP", "ko-KR"],
+    "settingsViewAndSaveLanguages": [
+      "zh-Hans",
+      "zh-Hant",
+      "en-US",
+      "ja-JP",
+      "ko-KR"
+    ],
     "automatedMappingAndSizeChecksPassed": 27,
-    "nativeViewportSizesObserved": ["640x480", "800x600", "960x720", "1120x840", "1280x960", "1856x1392 (fit to test screen)"],
-    "nativeMouseClickVerifiedAt": ["960x720", "1280x960"],
-    "controllerReplayInActualGame": ["D-pad movement", "left-stick movement", "release", "inventory", "system menu"],
+    "nativeViewportSizesObserved": [
+      "640x480",
+      "800x600",
+      "960x720",
+      "1120x840",
+      "1280x960",
+      "1856x1392 (fit to test screen)"
+    ],
+    "nativeMouseClickVerifiedAt": [
+      "960x720",
+      "1280x960"
+    ],
+    "controllerReplayInActualGame": [
+      "D-pad movement",
+      "left-stick movement",
+      "release",
+      "inventory",
+      "system menu"
+    ],
     "physicalControllerVerified": false
   },
   "nativeExit": {
@@ -73,5 +106,25 @@
     "rejoinedWithNewRoomInvitation": true,
     "forcedDisconnectRejoinedSameSave": true,
     "roomClosureObserved": true
+  },
+  "largeWindowPresets": {
+    "fixedChoices": 13,
+    "automaticFitAvailable": true,
+    "choicesSavedAndReloaded": 14,
+    "displayAndChatLayoutCasesPassed": 140,
+    "nativeWindowSizeObserved": "1600x1200",
+    "largestRequestedPreset": "2880x2160",
+    "largestSelectionRestoredAfterRestart": true,
+    "observedDesktopClampedSizeWithChat": "1684x1263",
+    "adjacentChatSizeObserved": "874x1263"
+  },
+  "loginStartup": {
+    "testedDefaultPorts": [
+      9999,
+      8080
+    ],
+    "occupiedManagementPortTest": 8080,
+    "observedFallbackPort": 18080,
+    "gameWindowObservedAfterFallback": true
   }
 }

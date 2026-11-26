@@ -24,6 +24,7 @@ from lan_room import (
     read_message, receive_datagrams, send_datagrams, write_message,
 )
 from local_profiles import ROOT, account_name
+from runtime_compat import TLS_STREAM_OPTIONS, timeout, to_thread
 
 
 def player_identity(root, name):
@@ -101,7 +102,7 @@ class GuestConnection:
             _, reader, writer = await self.connect_path(self.room_path)
             return reader, writer
 
-        paths = await asyncio.to_thread(self.available_paths)
+        paths = await to_thread(self.available_paths)
         if not paths:
             raise RoomError('lan_no_shared_network')
         attempts = [asyncio.create_task(self.connect_path(path)) for path in paths]
@@ -114,7 +115,7 @@ class GuestConnection:
                     break
                 except RoomError as failure:
                     error = str(failure)
-                except (OSError, EOFError):
+                except (OSError, asyncio.TimeoutError, EOFError):
                     continue
             if selected is None:
                 raise RoomError(error)
@@ -146,14 +147,14 @@ class GuestConnection:
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         writer = None
         try:
-            async with asyncio.timeout(HANDSHAKE_TIMEOUT):
+            async with timeout(HANDSHAKE_TIMEOUT):
                 if sys.platform == 'win32':
                     client.setsockopt(socket.IPPROTO_IP, IP_UNICAST_IF, struct.pack('!I', interface.index))
                 client.bind((str(interface.address), 0))
                 client.setblocking(False)
                 await asyncio.get_running_loop().sock_connect(client, (str(address), port))
                 reader, writer = await asyncio.open_connection(
-                    sock=client, ssl=self.context, server_hostname=str(address), ssl_shutdown_timeout=1)
+                    sock=client, ssl=self.context, server_hostname=str(address), **TLS_STREAM_OPTIONS)
                 cert = writer.get_extra_info('ssl_object').getpeercert(binary_form=True)
                 if not hmac.compare_digest(hashlib.sha256(cert).hexdigest(), self.pin):
                     raise RoomError('lan_certificate_changed')
@@ -168,7 +169,7 @@ class GuestConnection:
     async def exchange(self, operation, **fields):
         writer = None
         try:
-            async with asyncio.timeout(HANDSHAKE_TIMEOUT + 4):
+            async with timeout(HANDSHAKE_TIMEOUT + 4):
                 reader, writer = await self.connect()
                 request = {'v': PROTOCOL, 'op': operation, 'ticket': self.ticket, **fields}
                 await write_message(writer, request)
@@ -222,14 +223,14 @@ class GuestConnection:
                     # EOF wakes the guest immediately on a graceful room close.
                     await asyncio.wait_for(reader.read(1), HEARTBEAT_INTERVAL)
                     return
-                except TimeoutError:
+                except asyncio.TimeoutError:
                     pass
-                async with asyncio.timeout(HEARTBEAT_TIMEOUT):
+                async with timeout(HEARTBEAT_TIMEOUT):
                     writer.write(HEARTBEAT_PING)
                     await writer.drain()
                     if await reader.readexactly(1) != HEARTBEAT_PONG:
                         return
-        except (OSError, EOFError):
+        except (OSError, asyncio.TimeoutError, EOFError):
             return
 
     def accept_tcp(self, reader, writer, port):
@@ -350,7 +351,7 @@ async def main():
         credentials = await guest.join(request.get('name'))
         output_message({'ok': True, **credentials})
         credentials.clear()
-        process = await asyncio.to_thread(input_message)
+        process = await to_thread(input_message)
         pid = process.get('pid')
         if type(pid) is not int or not 0 < pid < 2**32:
             raise RoomError('lan_game_start_failed')
@@ -365,6 +366,6 @@ if __name__ == '__main__':
     except RoomError as error:
         with suppress(OSError):
             output_message({'ok': False, 'error': str(error)})
-    except (OSError, EOFError, ValueError, KeyError, TypeError):
+    except (OSError, asyncio.TimeoutError, EOFError, ValueError, KeyError, TypeError):
         with suppress(OSError):
             output_message({'ok': False, 'error': 'lan_unreachable'})

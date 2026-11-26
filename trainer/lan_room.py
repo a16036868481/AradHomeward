@@ -27,6 +27,7 @@ from bridge import Session, forward_until_closed, installed_server_endpoints
 from lan_network import MAX_ROOM_ADDRESSES, has_room_route, is_room_address, room_interfaces
 from local_profiles import account_name, authenticate_local, password_hash
 from relay_config import endpoints
+from runtime_compat import TLS_STREAM_OPTIONS, file_sha256, timeout, to_thread
 
 
 PROTOCOL = 1
@@ -60,16 +61,17 @@ def parse_invitation(value):
     if not 1 <= port <= 65535 or len(candidates) > MAX_ROOM_ADDRESSES:
         raise RoomError('lan_invalid_invite')
     try:
-        addresses = tuple(dict.fromkeys(IPv4Address(candidate) for candidate in candidates))
+        addresses = tuple(IPv4Address(candidate) for candidate in candidates)
     except ValueError:
         raise RoomError('lan_invalid_invite') from None
-    if not all(is_room_address(address) for address in addresses):
+    if any(str(address) != candidate or not is_room_address(address)
+           for address, candidate in zip(addresses, candidates)):
         raise RoomError('lan_invalid_invite')
-    return tuple((address, port) for address in addresses), invitation, pin
+    return tuple((address, port) for address in dict.fromkeys(addresses)), invitation, pin
 
 
 async def read_message(reader):
-    async with asyncio.timeout(HANDSHAKE_TIMEOUT):
+    async with timeout(HANDSHAKE_TIMEOUT):
         size = struct.unpack('!H', await reader.readexactly(2))[0]
         if not 0 < size <= HELLO_LIMIT:
             raise RoomError('lan_incompatible')
@@ -91,7 +93,7 @@ async def close_writer(writer):
     writer.close()
     try:
         await asyncio.wait_for(writer.wait_closed(), timeout=1)
-    except OSError:
+    except (OSError, asyncio.TimeoutError):
         writer.transport.abort()
 
 
@@ -145,9 +147,7 @@ def server_context(addresses):
 
 
 def client_build(root):
-    path = root / 'DNF60_ACT12' / 'ACT12' / 'DNF.exe'
-    with path.open('rb') as file:
-        return hashlib.file_digest(file, 'sha256').hexdigest()
+    return file_sha256(root / 'DNF60_ACT12' / 'ACT12' / 'DNF.exe')
 
 
 def restore_guest_permissions(store, identity, account_id):
@@ -238,22 +238,22 @@ class RoomHost:
             if self.listeners:
                 return self.status()
             interfaces = {}
-            for interface in await asyncio.to_thread(room_interfaces):
+            for interface in await to_thread(room_interfaces):
                 interfaces.setdefault(interface.address, []).append(interface)
             addresses = tuple(interfaces)[:MAX_ROOM_ADDRESSES]
             if not addresses:
                 raise RoomError('lan_invalid_address')
             if GAME_PORT not in self.endpoints()[0]:
                 raise RoomError('lan_game_required')
-            context, pin = await asyncio.to_thread(server_context, addresses)
-            self.build = await asyncio.to_thread(client_build, self.profiles.root)
+            context, pin = await to_thread(server_context, addresses)
+            self.build = await to_thread(client_build, self.profiles.root)
             listeners, port = {}, 0
             try:
                 for address in addresses:
                     try:
                         listener = await asyncio.start_server(
                             self.accept, str(address), port, family=socket.AF_INET, ssl=context,
-                            ssl_handshake_timeout=HANDSHAKE_TIMEOUT, ssl_shutdown_timeout=1)
+                            ssl_handshake_timeout=HANDSHAKE_TIMEOUT, **TLS_STREAM_OPTIONS)
                     except OSError:
                         continue
                     listeners[address] = listener
@@ -308,7 +308,7 @@ class RoomHost:
         except RoomError as error:
             with suppress(OSError):
                 await write_message(writer, {'ok': False, 'error': str(error)})
-        except (OSError, EOFError, ValueError):
+        except (OSError, asyncio.TimeoutError, EOFError, ValueError):
             pass
         finally:
             self.connections.pop(task, None)
@@ -338,7 +338,7 @@ class RoomHost:
         heartbeat = request.get('heartbeat') is True
         try:
             try:
-                login, secret = await asyncio.to_thread(guest_credentials, self.profiles, identity, name)
+                login, secret = await to_thread(guest_credentials, self.profiles, identity, name)
             except (OSError, RuntimeError, ValueError, sqlite3.Error):
                 raise RoomError('lan_guest_account_error') from None
             self.guests[ticket] = guest
@@ -355,7 +355,7 @@ class RoomHost:
         # A short stall can recover through TCP retransmission. Release the
         # authenticated slot if no control traffic returns within the deadline.
         while True:
-            async with asyncio.timeout(HEARTBEAT_TIMEOUT + 2 * HEARTBEAT_INTERVAL):
+            async with timeout(HEARTBEAT_TIMEOUT + 2 * HEARTBEAT_INTERVAL):
                 if await reader.readexactly(1) != HEARTBEAT_PING:
                     return
                 writer.write(HEARTBEAT_PONG)

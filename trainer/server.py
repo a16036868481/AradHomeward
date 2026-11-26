@@ -5,13 +5,14 @@ import asyncio, base64, concurrent.futures, hashlib, json, logging, mimetypes, o
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
-from urllib.request import Request, urlopen
 from assets import ROOT, GAME, Npk
 from bridge import Bridge, connect_db
 from admin import AdminService, checked_path
 from local_profiles import ProfileStore
 from lan_room import RoomHost
 from display_locale import names as locale_names, matches as locale_matches, public_page as locale_public_page
+from runtime_compat import to_thread
+from login_service import management_request
 
 HERE=Path(__file__).resolve().parent
 PORT=8787
@@ -50,15 +51,7 @@ ATTRIBUTE_FIELDS={
 }
 
 def gm_api(path,body=None):
-    req=Request('http://127.0.0.1:8080'+path,data=None if body is None else json.dumps(body,ensure_ascii=False).encode('utf-8'),headers={'Content-Type':'application/json'})
-    try:
-        with urlopen(req,timeout=12) as r: return json.load(r)
-    except Exception as e:
-        if hasattr(e,'read'):
-            try: message=json.loads(e.read()).get('error',str(e))
-            except Exception: message=str(e)
-            raise ValueError(message) from e
-        raise RuntimeError('游戏服务未就绪，请先使用一键开始') from e
+    return management_request(ROOT,path,body)
 
 def online_ids():
     global ONLINE_CACHE
@@ -201,9 +194,9 @@ async def profile(body):
             return {'message':'没有未保存的角色修改。','role':r}
         ensure_gm(r['account_id'])
         backup=snapshot(id,'profile',include_skill_costs=bool(job_change))
-        if values:await asyncio.to_thread(gm_api,'/api/character/edit',{'id':id,'values':values})
+        if values:await to_thread(gm_api,'/api/character/edit',{'id':id,'values':values})
         if extra:
-            if id in {x['character_id'] for x in (await asyncio.to_thread(gm_api,'/api/characters/online')).get('items',[])}:
+            if id in {x['character_id'] for x in (await to_thread(gm_api,'/api/characters/online')).get('items',[])}:
                 raise ValueError('角色刚刚上线，请刷新后再修改')
             with connect_db() as db:
                 db.execute('begin immediate');update_attributes(db,id,attribute_values(body,role(id)))
@@ -304,7 +297,7 @@ async def give_items(body):
     async def send_one(i,item,count,level,type,value):
         subject='修改器 '+operation+' '+str(i+1)
         payload={'id':id,'sender':'本机修改器','subject':subject,'body':'批量发放 '+item['name'],'gold':0,'item':item['id'],'count':count,'durability':item.get('durability',0),'enhanceType':type,'enhance':value,'attr':level}
-        await asyncio.to_thread(gm_api,'/api/mail/send',payload)
+        await to_thread(gm_api,'/api/mail/send',payload)
         with connect_db() as db:
             mail=db.execute('select id from character_mail where character_id=? and subject=? order by id desc limit 1',(id,subject)).fetchone()
         if not mail:raise RuntimeError('邮件已发送，但无法确认邮件编号')
@@ -543,7 +536,8 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     (ROOT/'logs').mkdir(exist_ok=True)
     PROFILES.initialize()
-    logging.basicConfig(filename=ROOT/'logs'/'trainer.log',level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s',encoding='utf-8')
+    log_file = logging.FileHandler(ROOT/'logs'/'trainer.log', encoding='utf-8')
+    logging.basicConfig(handlers=[log_file], level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
     thread=threading.Thread(target=lambda:asyncio.run(run_bridge()),daemon=True);thread.start()
     print('AradReturn local helper http://127.0.0.1:'+str(PORT),flush=True)

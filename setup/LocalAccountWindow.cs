@@ -37,7 +37,6 @@ internal sealed class LocalAccountWindow : Form
     [DllImport("user32.dll")] private static extern bool UnhookWinEvent(IntPtr hook);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr h,out uint pid);
     [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr h,int msg,IntPtr w,IntPtr l);
-    [DllImport("user32.dll")] internal static extern IntPtr SetThreadDpiAwarenessContext(IntPtr value);
     private struct Rect { public int Left,Top,Right,Bottom; }
     private enum Page { Modes, Multiplayer, Accounts, NewAccount }
 
@@ -65,7 +64,7 @@ internal sealed class LocalAccountWindow : Form
     private readonly Label heading=new Label(),caption=new Label(),state=new Label();
     private readonly Label languageInfo=new Label(),nameLabel=new Label(),nameHint=new Label();
     private readonly LanguagePicker language=new LanguagePicker();
-    private readonly Button create=new Button(),login=new Button(),save=new Button(),back=new Button(),playOptions=new Button();
+    private readonly Button create=new Button(),login=new Button(),save=new Button(),back=new Button();
     private readonly MenuChoice solo=new MenuChoice(),multiplayer=new MenuChoice(),hostRoom=new MenuChoice(),joinRoom=new MenuChoice();
     private readonly System.Windows.Forms.Timer timer=new System.Windows.Forms.Timer {Interval=500};
     private List<Dictionary<string,object>> profiles=new List<Dictionary<string,object>>();
@@ -115,11 +114,6 @@ internal sealed class LocalAccountWindow : Form
         ConfigureButton(login,"account_play_solo",true,()=>Login());
         ConfigureButton(save,"account_save",true,()=>CreateAccount());
         ConfigureButton(back,"launcher_back",false,GoBack);
-        ConfigureButton(playOptions,"play_options",false,()=>
-        {
-            using(var options=new GamePlayOptions(Dnf60Control.Root))options.ShowDialog(this);
-        });
-        playOptions.UseMnemonic=false;
         ConfigureChoice(solo,"launcher_solo",()=>OpenAccounts(false));
         ConfigureChoice(multiplayer,"launcher_multiplayer",()=>ShowPage(Page.Multiplayer));
         ConfigureChoice(hostRoom,"launcher_lan_host",()=>OpenAccounts(true));
@@ -139,7 +133,7 @@ internal sealed class LocalAccountWindow : Form
         };
         menuPane.Controls.AddRange(new Control[]{solo,multiplayer,hostRoom,joinRoom});
         body.Controls.AddRange(new Control[]{menuPane,createPane,listPane});
-        Controls.AddRange(new Control[]{heading,caption,language,languageInfo,body,back,create,login,save,playOptions,state});
+        Controls.AddRange(new Control[]{heading,caption,language,languageInfo,body,back,create,login,save,state});
         Resize+=(s,e)=>LayoutPane();
         Shown+=(s,e)=>
         {
@@ -240,7 +234,7 @@ internal sealed class LocalAccountWindow : Form
         int y=ClientSize.Height-83,mainWidth=172;
         back.SetBounds(pad,y,104,37);
         create.SetBounds(back.Right+8,y,155,37);
-        login.SetBounds(w-pad-mainWidth,y,mainWidth,37);save.Bounds=playOptions.Bounds=login.Bounds;
+        login.SetBounds(w-pad-mainWidth,y,mainWidth,37);save.Bounds=login.Bounds;
         state.SetBounds(pad,ClientSize.Height-36,content,26);
     }
     private void ApplyLanguage()
@@ -249,7 +243,7 @@ internal sealed class LocalAccountWindow : Form
         nameLabel.Text=LanguageSupport.Text("账号名称");name.AccessibleName=nameLabel.Text;
         accounts.AccessibleName=LanguageSupport.Text("已保存的账号");language.AccessibleName=LanguageSupport.Text("语言");
         nameHint.Text=LanguageSupport.Text("给这个账号起个名字，角色和进度会保存在这里。");
-        foreach(var button in new[]{create,save,back,playOptions})
+        foreach(var button in new[]{create,save,back})
             button.Text=button.AccessibleName=LanRoomWindow.TextFor(button.Name);
         foreach(var option in new[]{solo,multiplayer,hostRoom,joinRoom})
         {
@@ -331,7 +325,6 @@ internal sealed class LocalAccountWindow : Form
         listPane.Visible=create.Visible=login.Visible=page==Page.Accounts;
         createPane.Visible=save.Visible=page==Page.NewAccount;
         back.Visible=page!=Page.Modes;
-        playOptions.Visible=IsMenuPage;
         AcceptButton=page==Page.NewAccount?save:page==Page.Accounts?login:null;
         if(page==Page.NewAccount)name.Clear();
         ApplyPageText();

@@ -105,7 +105,7 @@ class ConnectionTests(unittest.IsolatedAsyncioTestCase):
         session = bridge.Session(bridge.Bridge(), None, Writer(), 7010)
         session.server_writer = Writer()
         with patch.object(bridge, 'REPLY_TIMEOUT_SECONDS', 0.02, create=True):
-            with self.assertRaises(TimeoutError):
+            with self.assertRaises(asyncio.TimeoutError):
                 await session.inject(65)
         self.assertIn(65, session.pending)
         with self.assertRaises(RuntimeError):

@@ -20,6 +20,12 @@ The script uses the Windows .NET Framework 4.x C# compiler. It builds the portab
 
 The release includes `a12_profiles.dll` for the original account launcher. To rebuild this helper, use an x86 Visual Studio developer prompt and compile `setup/portable/LegacyLauncherProfiles.cpp` with `/LD /O2 /MT /utf-8`, linking `shlwapi.lib` and `user32.lib`. Place the DLL at `DNF60_ACT12/ACT12/a12_profiles.dll` before refreshing the release hashes.
 
+To rebuild the login port fix, run `setup/portable/build-login-backend.ps1 -SourceDirectory <registration-service-source> -OutputDirectory <backends> -Framework net9.0` with the matching registration service project. Use `net6.0` for the Windows 7 variant. Pass `-LoginBackends <backends>` to `build.ps1` to install the x64 and x86 programs and refresh their version manifest. The port fallback requires the matching backend as well as the launcher. Rebuild the portable package integrity manifest after staging.
+
+For a Windows 7 SP1 x64 compatibility test, use a separate staging folder with the embedded Python 3.8 runtime, its matching dependencies including `async-timeout`, SQLite with `unixepoch()` support, and the .NET 6 x64 and x86 login service builds. Run the portable build with `-Windows7Runtime` and regenerate the package integrity manifest. On the test PC, use .NET Framework 4.8 and the Windows 7 updates and Visual C++ runtimes required by .NET 6. Check startup, local sign-in, the trainer and saving on Windows 7 before releasing this variant. [Microsoft runtime prerequisites](https://learn.microsoft.com/en-us/dotnet/core/install/windows#windows-7--81--server-2012)
+
+Win7 SP1 64 位兼容测试使用独立的打包目录。该目录需包含嵌入式 Python 3.8、匹配的依赖（含 `async-timeout`）、支持 `unixepoch()` 的 SQLite，以及 .NET 6 构建的两种架构登录服务。构建时传入 `-Windows7Runtime` 并重新生成包校验清单。测试机需具备 .NET Framework 4.8 和 .NET 6 要求的 Win7 补丁及 Visual C++ 运行库。发布前应在 Win7 上验证启动、账号登录、修改器和存档。
+
 ## Game language runtime
 
 `setup/localization/GameLanguage.cpp` and `GameLanguage.rc` build an **x86** DLL with Visual Studio 2022 C++ Build Tools, the Windows SDK and the bundled MinHook source. Run `setup/localization/build-runtime.cmd` after adjusting its `vcvars32.bat` location if needed. The base `a12_score_base.dll`, game client and binary language/resource packs come from the release.
