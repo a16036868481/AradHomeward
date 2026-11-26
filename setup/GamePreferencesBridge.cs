@@ -83,8 +83,8 @@ internal sealed class GamePreferencesBridge : ApplicationContext
 
     private void PublishInput()
     {
-        bool dungeon = (current.RepeatRate != 0 || current.TownSpeed != 100) && InScene("dungeon");
-        SetInputValue(RepeatProperty, dungeon && current.RepeatRate != 0 ? (current.RepeatRate << 8) | (int)current.RepeatKey : 0);
+        bool dungeon = (current.RepeatEnabled || current.TownSpeed != 100) && InScene("dungeon");
+        SetInputValue(RepeatProperty, dungeon && current.RepeatEnabled ? (current.RepeatRate << 8) | (int)current.RepeatKey : 0);
         SetInputValue(TownProperty, !dungeon && current.TownSpeed != 100 && InScene("town") ? current.TownSpeed : 0);
     }
 
@@ -112,8 +112,10 @@ internal sealed class GamePreferencesBridge : ApplicationContext
             return (int)current.Bindings[field - FirstBinding] + 1;
         int travel = FirstBinding + current.Bindings.Length;
         if (field == travel) return current.TownSpeed + 1;
-        if (field == travel + 1) return current.RepeatRate + 1;
+        if (field == travel + 1) return current.RepeatEnabled ? current.RepeatRate + 1 : 1;
         if (field == travel + 2) return (int)current.RepeatKey + 1;
+        if (field == travel + 3) return current.RepeatEnabled ? 2 : 1;
+        if (field == travel + 4) return current.RepeatRate + 1;
         if (field >= DefaultBinding && field < DefaultBinding + defaults.Bindings.Length)
             return (int)defaults.Bindings[field - DefaultBinding] + 1;
         return 0;
@@ -125,7 +127,8 @@ internal sealed class GamePreferencesBridge : ApplicationContext
         var data = (CopyData)Marshal.PtrToStructure(message, typeof(CopyData));
         var next = new GamePlaySettings();
         int travel = FirstBinding + next.Bindings.Length;
-        bool extended = data.Length == (travel + 3) * sizeof(int);
+        bool hasRepeatSwitch = data.Length == (travel + 4) * sizeof(int);
+        bool extended = hasRepeatSwitch || data.Length == (travel + 3) * sizeof(int);
         if (data.Tag != new IntPtr(Packet) || (!extended && data.Length != travel * sizeof(int)) || data.Data == IntPtr.Zero)
             return false;
         int length = data.Length / sizeof(int);
@@ -136,8 +139,12 @@ internal sealed class GamePreferencesBridge : ApplicationContext
         next.DisplayMode = (GameDisplayMode)values[0];
         next.WindowScale = values[1];
         next.GamepadEnabled = values[2] != 0;
+        int rate = extended ? values[travel + 1] : 0;
+        int enabled = hasRepeatSwitch ? values[travel + 3] : (rate == 0 ? 0 : 1);
+        if (enabled < 0 || enabled > 1) return false;
         next.TownSpeed = extended ? values[travel] : current.TownSpeed;
-        next.RepeatRate = extended ? values[travel + 1] : current.RepeatRate;
+        next.RepeatRate = hasRepeatSwitch || rate != 0 ? rate : current.RepeatRate;
+        next.RepeatEnabled = extended ? enabled == 1 : current.RepeatEnabled;
         next.RepeatKey = extended ? (Keys)values[travel + 2] : current.RepeatKey;
         if (!GamePlaySettings.TownSpeeds.Contains(next.TownSpeed) || !GamePlaySettings.RepeatRates.Contains(next.RepeatRate) ||
             !GamePlaySettings.CanRepeat(next.RepeatKey)) return false;
@@ -148,7 +155,8 @@ internal sealed class GamePreferencesBridge : ApplicationContext
             next.Bindings[i] = key;
         }
         if (current.DisplayMode == next.DisplayMode && current.WindowScale == next.WindowScale &&
-            current.TownSpeed == next.TownSpeed && current.RepeatRate == next.RepeatRate && current.RepeatKey == next.RepeatKey &&
+            current.TownSpeed == next.TownSpeed && current.RepeatEnabled == next.RepeatEnabled &&
+            current.RepeatRate == next.RepeatRate && current.RepeatKey == next.RepeatKey &&
             current.GamepadEnabled == next.GamepadEnabled && current.Bindings.SequenceEqual(next.Bindings)) return true;
         try { next.Save(root); }
         catch (IOException) { return false; }

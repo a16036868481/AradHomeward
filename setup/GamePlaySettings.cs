@@ -21,9 +21,10 @@ internal sealed class GamePlaySettings
     internal GameDisplayMode DisplayMode;
     internal bool GamepadEnabled = true;
     internal static readonly int[] TownSpeeds = { 100, 75, 50, 25 };
-    internal static readonly int[] RepeatRates = { 0, 4, 8, 12 };
+    internal static readonly int[] RepeatRates = { 4, 8, 12 };
     internal int TownSpeed = 100;
-    internal int RepeatRate;
+    internal bool RepeatEnabled;
+    internal int RepeatRate = 8;
     internal Keys RepeatKey = Keys.X;
 
     internal static bool CanRepeat(Keys key)
@@ -50,6 +51,8 @@ internal sealed class GamePlaySettings
     internal static GamePlaySettings Load(string root)
     {
         var settings = new GamePlaySettings();
+        bool? repeatEnabled = null;
+        int storedRate = 0;
         try
         {
             foreach (string line in File.ReadLines(SettingsPath(root)))
@@ -71,12 +74,16 @@ internal sealed class GamePlaySettings
                 int number;
                 if (!Int32.TryParse(value, out number)) continue;
                 if (key == "TownSpeed" && TownSpeeds.Contains(number)) settings.TownSpeed = number;
-                if (key == "RepeatRate" && RepeatRates.Contains(number)) settings.RepeatRate = number;
+                if (key == "RepeatEnabled" && (number == 0 || number == 1)) repeatEnabled = number == 1;
+                if (key == "RepeatRate" && (number == 0 || RepeatRates.Contains(number))) storedRate = number;
                 if (key == "RepeatKey" && CanRepeat((Keys)number)) settings.RepeatKey = (Keys)number;
             }
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+        // Earlier versions stored zero for off and a positive frequency for on.
+        settings.RepeatEnabled = repeatEnabled ?? (storedRate != 0);
+        if (storedRate != 0) settings.RepeatRate = storedRate;
         return settings;
     }
 
@@ -105,6 +112,7 @@ internal sealed class GamePlaySettings
                 "DisplayMode=" + ((int)DisplayMode).ToString(CultureInfo.InvariantCulture),
                 "GamepadEnabled=" + (GamepadEnabled ? "1" : "0"), "GamepadKeys=" + keys,
                 "TownSpeed=" + TownSpeed.ToString(CultureInfo.InvariantCulture),
+                "RepeatEnabled=" + (RepeatEnabled ? "1" : "0"),
                 "RepeatRate=" + RepeatRate.ToString(CultureInfo.InvariantCulture),
                 "RepeatKey=" + ((int)RepeatKey).ToString(CultureInfo.InvariantCulture) }, Encoding.ASCII);
             if (File.Exists(file)) File.Replace(temporary, file, null);

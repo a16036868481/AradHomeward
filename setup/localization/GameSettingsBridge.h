@@ -15,17 +15,20 @@ namespace AradGameSettings
     constexpr UINT sendFlags = SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT;
     constexpr int windowed = 0, maximized = 1, fullScreen = 2, nativeScreenOption = 4;
     constexpr int gameSettingsTab = 1, bindingCount = 22, defaultBinding = 0x100;
+    constexpr int baseFields = bindingCount + 3, actionFields = baseFields + 3;
+    constexpr int townRow = 44, repeatRow = 87, frequencyRow = 119, keyRow = 151, padRow = 215;
     constexpr int townSpeeds[] = {100, 75, 50, 25};
-    constexpr int repeatRates[] = {0, 4, 8, 12};
+    constexpr int repeatRates[] = {4, 8, 12};
+    constexpr int legacyRepeatRates[] = {0, 4, 8, 12};
     constexpr int scales[] = {100, 125, 150, 175, 200, 210, 225, 250, 275, 300, 320, 400, 450, 0};
     constexpr DWORD normalInk = 0xffe9d9b3, selectedInk = 0xffffe57b;
 
     struct Preferences
     {
-        int display, scale, padEnabled, keys[bindingCount], townSpeed, repeatRate, repeatKey;
+        int display, scale, padEnabled, keys[bindingCount], townSpeed, repeatRate, repeatKey, repeatEnabled;
     };
 
-    static_assert(sizeof(Preferences) == (bindingCount + 6) * sizeof(int), "Game preferences packet");
+    static_assert(sizeof(Preferences) == (actionFields + 1) * sizeof(int), "Game preferences packet");
 
     struct Labels
     {
@@ -53,13 +56,13 @@ namespace AradGameSettings
         L"LB+RB X", L"LB+RB A", L"LB+RB Y", L"LB+RB B", L"Start", L"Back"
     };
 
-    struct ActionLabels { const wchar_t *controls, *actions, *town, *repeat, *key, *keyHint; };
+    struct ActionLabels { const wchar_t *controls, *actions, *town, *repeat, *frequency, *key, *keyHint; };
     constexpr ActionLabels actionLabels[] = {
-        {L"操作", L"角色操作", L"城镇移动速度", L"按住连发", L"连发键", L"请选择字母键或数字键"},
-        {L"操作", L"角色操作", L"城鎮移動速度", L"按住連發", L"連發鍵", L"請選擇字母鍵或數字鍵"},
-        {L"Controls", L"Actions", L"Town movement", L"Hold to repeat", L"Repeat key", L"Press a letter or number key"},
-        {L"操作", L"キャラ操作", L"街での移動速度", L"長押し連射", L"連射キー", L"英字か数字キーを押してください"},
-        {L"조작", L"캐릭터 조작", L"마을 이동 속도", L"누르고 연타", L"연타 키", L"영문 또는 숫자 키를 누르세요"}
+        {L"操作", L"角色操作", L"城镇移动速度", L"按住连发", L"连发频率", L"连发键", L"请选择字母键或数字键"},
+        {L"操作", L"角色操作", L"城鎮移動速度", L"按住連發", L"連發頻率", L"連發鍵", L"請選擇字母鍵或數字鍵"},
+        {L"Controls", L"Actions", L"Town movement", L"Hold to repeat", L"Repeat rate", L"Repeat key", L"Press a letter or number key"},
+        {L"操作", L"キャラ操作", L"街での移動速度", L"長押し連射", L"連射頻度", L"連射キー", L"英字か数字キーを押してください"},
+        {L"조작", L"캐릭터 조작", L"마을 이동 속도", L"누르고 연타", L"연타 빈도", L"연타 키", L"영문 또는 숫자 키를 누르세요"}
     };
     enum class Page { Game, Actions, Pad };
 
@@ -102,10 +105,10 @@ namespace AradGameSettings
         void* padTab;
         void* enabled;
         void* defaults;
-        void *townSpeed, *repeatRate, *repeatKey, *openPad, *backToActions;
+        void *townSpeed, *repeatSwitch, *repeatRate, *repeatKey, *openPad, *backToActions;
         void* bindings[bindingCount];
         Preferences values;
-        bool ready, active, extended, saveError;
+        bool ready, active, extended, canToggleRepeat, saveError;
         Page page;
         int binding;
     };
@@ -201,12 +204,16 @@ namespace AradGameSettings
             values.keys[i] = ReadPreference(endpoint, i + 3);
             if (values.keys[i] < 0) return false;
         }
-        values.townSpeed = ReadPreference(endpoint, bindingCount + 3);
+        values.townSpeed = ReadPreference(endpoint, baseFields);
         ui.extended = values.townSpeed >= 0;
+        ui.canToggleRepeat = false;
         if (ui.extended)
         {
-            values.repeatRate = ReadPreference(endpoint, bindingCount + 4);
-            values.repeatKey = ReadPreference(endpoint, bindingCount + 5);
+            values.repeatKey = ReadPreference(endpoint, baseFields + 2);
+            values.repeatEnabled = ReadPreference(endpoint, actionFields);
+            ui.canToggleRepeat = values.repeatEnabled >= 0 && values.repeatEnabled <= 1;
+            // The legacy field returns zero for off. The new field retains the chosen rate.
+            values.repeatRate = ReadPreference(endpoint, ui.canToggleRepeat ? actionFields + 1 : baseFields + 1);
             if (values.repeatRate < 0 || values.repeatKey < 0) return false;
         }
         if (auto config = Config())
@@ -228,8 +235,8 @@ namespace AradGameSettings
         if (ScreenMode(config) != windowed && !Address<WriteOption>(0xbe4f30)(config, nativeScreenOption, windowed))
             return false;
         PublishScreenMode(config);
-        COPYDATASTRUCT data = {packet, ui.extended ? static_cast<DWORD>(sizeof(ui.values)) :
-            static_cast<DWORD>((bindingCount + 3) * sizeof(int)), &ui.values};
+        const int fields = ui.canToggleRepeat ? actionFields + 1 : ui.extended ? actionFields : baseFields;
+        COPYDATASTRUCT data = {packet, static_cast<DWORD>(fields * sizeof(int)), &ui.values};
         DWORD_PTR result = 0;
         const HWND endpoint = Endpoint();
         return endpoint && SendMessageTimeoutW(endpoint, WM_COPYDATA, reinterpret_cast<WPARAM>(viewport),
@@ -468,10 +475,11 @@ namespace AradGameSettings
         Move(Field<void*>(ui.size, 0xac), X(ui.size), Y(ui.size) + 2);
         Move(ui.padPane, x, y);
         Move(ui.actionPane, x, y);
-        Move(ui.townSpeed, x + 147, y + 44);
-        Move(ui.repeatRate, x + 147, y + 87);
-        Move(ui.repeatKey, x + 147, y + 119);
-        Move(ui.openPad, x + 147, y + 177);
+        Move(ui.townSpeed, x + 147, y + townRow);
+        Move(ui.repeatSwitch, x + 147, y + repeatRow);
+        Move(ui.repeatRate, x + 147, y + (ui.canToggleRepeat ? frequencyRow : repeatRow));
+        Move(ui.repeatKey, x + 147, y + keyRow);
+        Move(ui.openPad, x + 147, y + padRow);
         Move(ui.backToActions, x + 152, y + 363);
         Move(ui.enabled, x + 92, y + 30);
         Move(ui.defaults, x + 152, y + 30);
@@ -513,11 +521,12 @@ namespace AradGameSettings
         ui.enabled = NewButton(ui.padPane, text->on, x + 92, y + 30);
         ui.defaults = NewButton(ui.padPane, text->defaults, x + 152, y + 30);
         ui.backToActions = NewButton(ui.padPane, Actions().actions, x + 152, y + 363);
-        ui.townSpeed = NewButton(ui.actionPane, L"", x + 147, y + 44);
-        ui.repeatRate = NewButton(ui.actionPane, L"", x + 147, y + 87);
-        ui.repeatKey = NewButton(ui.actionPane, L"", x + 147, y + 119);
-        ui.openPad = NewButton(ui.actionPane, text->pad, x + 147, y + 177);
-        if (!ui.enabled || !ui.defaults || !ui.backToActions || !ui.townSpeed || !ui.repeatRate ||
+        ui.townSpeed = NewButton(ui.actionPane, L"", x + 147, y + townRow);
+        ui.repeatSwitch = NewButton(ui.actionPane, text->off, x + 147, y + repeatRow);
+        ui.repeatRate = NewButton(ui.actionPane, L"", x + 147, y + frequencyRow);
+        ui.repeatKey = NewButton(ui.actionPane, L"", x + 147, y + keyRow);
+        ui.openPad = NewButton(ui.actionPane, text->pad, x + 147, y + padRow);
+        if (!ui.enabled || !ui.defaults || !ui.backToActions || !ui.townSpeed || !ui.repeatSwitch || !ui.repeatRate ||
             !ui.repeatKey || !ui.openPad) return false;
         for (int i = 0; i < bindingCount; ++i)
         {
@@ -533,6 +542,9 @@ namespace AradGameSettings
         wchar_t value[16];
         swprintf_s(value, L"%d%%", ui.values.townSpeed);
         Caption(ui.townSpeed, value);
+        if (ui.canToggleRepeat)
+            Caption(ui.repeatSwitch, ui.values.repeatEnabled ? text->on : text->off,
+                ui.values.repeatEnabled ? selectedInk : normalInk);
         swprintf_s(value, L"%d / s", ui.values.repeatRate);
         Caption(ui.repeatRate, ui.values.repeatRate ? value : text->off);
         RefreshBinding(bindingCount);
@@ -552,6 +564,7 @@ namespace AradGameSettings
         Visible(ui.originalPane, page == Page::Game);
         Visible(ui.padPane, page == Page::Pad);
         Visible(ui.actionPane, page == Page::Actions);
+        Visible(ui.repeatSwitch, page == Page::Actions && ui.canToggleRepeat);
         Visible(ui.backToActions, page == Page::Pad && ui.extended);
         Caption(ui.gameTab, text->game, page == Page::Game ? selectedInk : normalInk);
         Caption(ui.padTab, ui.extended ? Actions().controls : text->pad, page == Page::Game ? normalInk : selectedInk);
@@ -637,10 +650,11 @@ namespace AradGameSettings
         }
         else
         {
-            Label(renderer, x + 9, y + 49, Actions().town);
-            Label(renderer, x + 9, y + 92, Actions().repeat);
-            Label(renderer, x + 9, y + 124, Actions().key);
-            if (ui.binding == bindingCount) Label(renderer, x + 9, y + 151, Actions().keyHint, selectedInk);
+            Label(renderer, x + 9, y + townRow + 5, Actions().town);
+            Label(renderer, x + 9, y + repeatRow + 5, Actions().repeat);
+            if (ui.canToggleRepeat) Label(renderer, x + 9, y + frequencyRow + 5, Actions().frequency);
+            Label(renderer, x + 9, y + keyRow + 5, Actions().key);
+            if (ui.binding == bindingCount) Label(renderer, x + 9, y + keyRow + 32, Actions().keyHint, selectedInk);
             if (ui.saveError) Label(renderer, x + 9, y + 345, text->saveError, 0xffffa592);
         }
         reinterpret_cast<RestoreFontStyle>(methods[0x50 / sizeof(void*)])(renderer);
@@ -660,7 +674,18 @@ namespace AradGameSettings
             else if (ui.page == Page::Actions)
             {
                 if (Clicked(ui.townSpeed)) { ui.values.townSpeed = Next(ui.values.townSpeed, townSpeeds); RefreshActions(); }
-                else if (Clicked(ui.repeatRate)) { ui.values.repeatRate = Next(ui.values.repeatRate, repeatRates); RefreshActions(); }
+                else if (ui.canToggleRepeat && Clicked(ui.repeatSwitch))
+                {
+                    ui.values.repeatEnabled = !ui.values.repeatEnabled;
+                    SelectBinding(-1);
+                    RefreshActions();
+                }
+                else if (Clicked(ui.repeatRate))
+                {
+                    ui.values.repeatRate = ui.canToggleRepeat ? Next(ui.values.repeatRate, repeatRates)
+                        : Next(ui.values.repeatRate, legacyRepeatRates);
+                    RefreshActions();
+                }
                 else if (Clicked(ui.repeatKey)) SelectBinding(bindingCount);
                 else if (Clicked(ui.openPad)) ShowPage(Page::Pad);
             }
