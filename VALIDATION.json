@@ -1,6 +1,7 @@
 {
-  "version": "2.6.0-preview.39",
+  "version": "2.6.0-preview.40",
   "checkedOn": "2026-11-27",
+  "automatedTestsCheckedIn": "2.6.0-preview.39",
   "automatedTestsPassed": 28,
   "startupDiagnosticChecksPassed": 8,
   "languagePackHashesVerified": [
@@ -107,7 +108,16 @@
     "forcedDisconnectRejoinedSameSave": true,
     "roomClosureObserved": true
   },
+  "gameplayControls": {
+    "townPacesObservedInElvengardPercent": [25, 50, 75, 100],
+    "repeatSwitchObservedInLorien": true,
+    "offPreservesRepeatRateAndKey": true,
+    "repeatSettingsAndLegacyCompatibilityChecksPassed": 11,
+    "sessionLifecycleTestsPassed": 8,
+    "lanLoopbackTestsPassed": 10
+  },
   "largeWindowPresets": {
+    "checkedIn": "2.6.0-preview.39",
     "fixedChoices": 13,
     "automaticFitAvailable": true,
     "choicesSavedAndReloaded": 14,
@@ -119,6 +129,7 @@
     "adjacentChatSizeObserved": "874x1263"
   },
   "loginStartup": {
+    "checkedIn": "2.6.0-preview.39",
     "testedDefaultPorts": [
       9999,
       8080

@@ -1,5 +1,12 @@
 # Changes
 
+## v2.6.0-preview.40 — 2026-11-27
+
+- Under **Settings → Controls**, set town movement to 25%, 50%, 75% or 100% of your character's usual pace with their current equipment.
+- **Hold to repeat** has its own switch. It starts off, defaults to **X**, and remembers the selected key and rate when you switch it off. Choose 4, 8 or 12 inputs per second and select **Save** to apply the settings.
+- 游戏内「游戏设置 → 操作」可直接调整城镇步速，支持当前装备原速的 25%、50%、75% 和 100%。
+- 「按住连发」可独立开启或关闭。新配置默认关闭，默认按键为 X。可选每秒 4、8 或 12 次，关闭后会记住频率与按键。
+
 ## v2.6.0-preview.39 — 2026-11-27
 
 - The original in-game Settings panel now offers 13 fixed 4:3 window sizes plus Fit to screen. Eight new presets range from 1344 × 1008 to 2880 × 2160. The game remembers the chosen size and fits both the game and the side chat into the available desktop space.

@@ -6,7 +6,7 @@ A portable Windows ACT12 / level-60 local game package with a name-only account 
 
 **[Windows download](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-`AradHomeward-v2.6.0-preview.39-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
+`AradHomeward-v2.6.0-preview.40-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
 
 Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 
@@ -36,9 +36,9 @@ The standard package requires **Windows 10 (1607 or later) or Windows 11, 64-bit
 
 ## Current release status
 
-**v2.6.0-preview.39** adds eight window sizes up to 2880 × 2160. The side chat scales with the game. At sign-in the launcher selects available local ports when the defaults are in use.
+**v2.6.0-preview.40** adds four town movement speeds and a separate hold-to-repeat switch. The switch remembers the repeat rate and key when turned off.
 
-Open **System menu → Settings** from the game's bottom bar. The original panel includes **Window size**. Under **Controls**, choose a town walking pace, enable hold-to-repeat, or open **Gamepad** to set controller bindings. Select **Save** to apply your changes.
+Open **System menu → Settings** from the game's bottom bar. The original panel includes **Window size** up to 2880 × 2160. Under **Controls**, choose a town walking pace, switch hold-to-repeat on or off, or open **Gamepad** to set controller bindings. Select **Save** to apply your changes.
 
 The first-use game mixer remains one quarter of the current Windows output volume. After a LAN disconnect, **Rejoin room** opens with the previous invitation and player name.
 
