@@ -11,6 +11,7 @@
 #include "OfflineNews.h"
 #include "WindowInput.h"
 #include "vendor/minhook-1.3.4/include/MinHook.h"
+#include "TownOwl.h"
 
 static HMODULE selfModule;
 static LanguageMap translations;
@@ -277,12 +278,13 @@ static DWORD WINAPI Initialize(void*)
         else if (!AradGameSettings::InstallTownMovement()) Log("town-movement-unavailable");
     }
     if (!InstallSeriaIntroductionHook(image)) Log("seria-introduction-hook-unavailable");
+    if (MH_Initialize() != MH_OK) { Log("hook-initialization-failed"); return 0; }
+    if (!AradTownOwl::Install(image)) Log("town-owl-unavailable");
     localNews = OfflineNewsUrl(installation, locale);
     // Use the local welcome page with the original Chinese text and font path.
     if (locale == L"zh-Hans")
     {
-        if (MH_Initialize() != MH_OK ||
-            MH_CreateHook(newsTarget, reinterpret_cast<void*>(&Navigate), reinterpret_cast<void**>(&originalNavigate)) != MH_OK ||
+        if (MH_CreateHook(newsTarget, reinterpret_cast<void*>(&Navigate), reinterpret_cast<void**>(&originalNavigate)) != MH_OK ||
             MH_EnableHook(newsTarget) != MH_OK)
         { Log("news-hook-installation-failed"); return 0; }
         StartAudit("offline-news");
@@ -310,7 +312,7 @@ static DWORD WINAPI Initialize(void*)
     {Log("unsupported-client");return 0;}
     std::wstring font=installation+L"\\localization\\fonts\\NotoSansCJK-Regular.ttc";
     if(!AddFontResourceExW(font.c_str(),FR_PRIVATE,nullptr)){Log("font-unavailable");return 0;}
-    if(MH_Initialize()!=MH_OK||MH_CreateHook(target,reinterpret_cast<void*>(&Decode),reinterpret_cast<void**>(&originalDecode))!=MH_OK||
+    if(MH_CreateHook(target,reinterpret_cast<void*>(&Decode),reinterpret_cast<void**>(&originalDecode))!=MH_OK||
        MH_CreateHook(uiTarget,reinterpret_cast<void*>(&UiText),reinterpret_cast<void**>(&originalUiText))!=MH_OK||
        MH_CreateHook(rawA,reinterpret_cast<void*>(&RawA),reinterpret_cast<void**>(&originalRawA))!=MH_OK||
        MH_CreateHook(rawB,reinterpret_cast<void*>(&RawB),reinterpret_cast<void**>(&originalRawB))!=MH_OK||

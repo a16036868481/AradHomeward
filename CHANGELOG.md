@@ -1,5 +1,10 @@
 # Changes
 
+## v2.6.0-preview.42 — 2026-11-27
+
+- Using the Unlimited Owl in town opens the character's warehouse from the inventory or quick bar. It uses the native five-minute cooldown and can be reused.
+- 修复城镇中从背包或快捷栏使用无限猫头鹰时无法打开金库的问题。使用后按原有的 5 分钟冷却计时，道具可重复使用。
+
 ## v2.6.0-preview.41 — 2026-11-27
 
 - In the native trainer, open **Overview → Town movement speed** and enter a whole percentage from 0 to 100. Save to apply it in town. Existing speed preferences carry forward.

@@ -1,5 +1,5 @@
 {
-  "version": "2.6.0-preview.40",
+  "version": "2.6.0-preview.42",
   "checkedOn": "2026-11-27",
   "automatedTestsCheckedIn": "2.6.0-preview.39",
   "automatedTestsPassed": 28,
@@ -109,12 +109,32 @@
     "roomClosureObserved": true
   },
   "gameplayControls": {
-    "townPacesObservedInElvengardPercent": [25, 50, 75, 100],
-    "repeatSwitchObservedInLorien": true,
-    "offPreservesRepeatRateAndKey": true,
-    "repeatSettingsAndLegacyCompatibilityChecksPassed": 11,
-    "sessionLifecycleTestsPassed": 8,
-    "lanLoopbackTestsPassed": 10
+    "checkedIn": "2.6.0-preview.41",
+    "nativeSoloTownSpeedTestPercent": [
+      0,
+      37,
+      75,
+      100
+    ],
+    "old75PercentSettingLoaded": true,
+    "native37PercentWalkRemainedContinuous": true,
+    "native37PercentMeasuredRatio": 0.361,
+    "nativeZeroPercentDistance": 0,
+    "changeAppliedWhileGameRunning": true,
+    "inGameRepeatSavePreservedTrainerSpeed": true,
+    "trainerLabelsChecked": [
+      "zh-Hans",
+      "zh-Hant",
+      "en-US",
+      "ja-JP",
+      "ko-KR"
+    ],
+    "inputValidationAndLegacyMigrationPassed": true,
+    "nativeMathRangeChecked": [
+      0,
+      100
+    ],
+    "previousHoldRepeatAndSessionChecksFrom": "2.6.0-preview.40"
   },
   "largeWindowPresets": {
     "checkedIn": "2.6.0-preview.39",
@@ -137,5 +157,15 @@
     "occupiedManagementPortTest": 8080,
     "observedFallbackPort": 18080,
     "gameWindowObservedAfterFallback": true
+  },
+  "unlimitedOwl": {
+    "checkedIn": "2.6.0-preview.42",
+    "testedRuntimeSha256": "907d1292a9434bdf8c3a029bf97f12a3d068e7edf164a518aa7fa25483e9a4c4",
+    "baseClientReproducedTownFailure": true,
+    "chineseTownInventoryRightClickOpenedWarehouse": true,
+    "townWarehouseDepositAndWithdrawalPassed": true,
+    "owlCountPreservedInTestFixture": true,
+    "originalFiveMinuteCooldownFeedbackObserved": true,
+    "gameplayInputNativeTestsPassed": true
   }
 }
