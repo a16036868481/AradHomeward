@@ -6,7 +6,7 @@ A portable Windows ACT12 / level-60 local game package with a name-only account 
 
 **[Windows download](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-`AradHomeward-v2.6.0-preview.41-win-x64.zip` is the full Windows package with the game, local server, native editor and LAN rooms.
+`AradHomeward-v2.6.0-preview.43-win-x64.zip` is the full Windows 10 and 11 package with the game, local server, native editor and LAN rooms. The same release includes a separate Windows 7 SP1 x64 compatibility test package.
 
 Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 
@@ -36,7 +36,9 @@ The standard package requires **Windows 10 (1607 or later) or Windows 11, 64-bit
 
 ## Current release status
 
-**v2.6.0-preview.41** fixes pauses in the walking animation at reduced town speeds. Enter a whole number from 0 to 100 under **Trainer → Overview → Town movement speed**, then select **Save**. At 0%, town movement stops. At 100%, it returns to normal.
+**v2.6.0-preview.43** uses a bundled x64 compatibility login service if Windows lacks `QueueUserAPC2`. The Windows 7 SP1 x64 test package uses the x64 .NET 6 login service. Both paths passed a Windows 11 test with the API reported unavailable. Testing on Windows 7 and the affected Windows 10 build is pending. [Validation](VALIDATION.json)
+
+To adjust town movement speed, enter a whole number from 0 to 100 under **Trainer → Overview → Town movement speed**, then select **Save**. At 0%, town movement stops. At 100%, it returns to normal.
 
 Open **System menu → Settings** from the game's bottom bar. The original panel includes **Window size** up to 2880 × 2160. Under **Controls**, switch hold-to-repeat on or off, or open **Gamepad** to set controller bindings. Select **Save** to apply your changes.
 

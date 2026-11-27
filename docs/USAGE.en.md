@@ -97,4 +97,6 @@ To keep the movement speed when upgrading into a new folder, copy `setup/gamepla
 
 Logs and diagnostics can contain account or character data. Review them before posting a public issue. A clean release contains no existing player's saves, private certificates, historical logs or backups.
 
+On systems without `QueueUserAPC2`, the launcher and startup check use the bundled 64-bit compatibility login service. The `loginRuntime` check reports the selected backend and its bitness. Windows 7 SP1 requires a [separate compatibility build](BUILD.md#windows-desktop-components).
+
 All interface images here are **component renders with demo data**. Local component validation is recorded in [VALIDATION.json](../VALIDATION.json); gameplay on your specific PC must be verified on that machine.

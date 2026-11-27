@@ -1,6 +1,6 @@
 {
-  "version": "2.6.0-preview.42",
-  "checkedOn": "2026-11-27",
+  "version": "2.6.0-preview.43",
+  "checkedOn": "2026-11-28",
   "automatedTestsCheckedIn": "2.6.0-preview.39",
   "automatedTestsPassed": 28,
   "startupDiagnosticChecksPassed": 8,
@@ -149,14 +149,28 @@
     "adjacentChatSizeObserved": "874x1263"
   },
   "loginStartup": {
-    "checkedIn": "2.6.0-preview.39",
+    "checkedIn": "2.6.0-preview.43",
+    "testHostWindowsBuild": 26300,
+    "loginRegressionTestsPassed": 13,
+    "simulatedMissingQueueUserApc2": true,
+    "standardX64LoginObservedOnWindows11": true,
+    "compatibilityLoginBitness": 64,
+    "compatibilityRuntimes": {
+      "windows10StandardPackage": "net10.0",
+      "windows7TestPackage": "net6.0"
+    },
     "testedDefaultPorts": [
       9999,
       8080
     ],
     "occupiedManagementPortTest": 8080,
+    "observedFallbackLoginPort": 19099,
     "observedFallbackPort": 18080,
-    "gameWindowObservedAfterFallback": true
+    "existingLocalAccountAndClientStartPassed": true,
+    "existingCertificatePreserved": true,
+    "saveBackupPassed": true,
+    "affectedWindows10BuildTested": false,
+    "windows7Tested": false
   },
   "unlimitedOwl": {
     "checkedIn": "2.6.0-preview.42",

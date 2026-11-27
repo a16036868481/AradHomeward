@@ -98,4 +98,6 @@
 
 登录服务优先使用本机 9999，管理服务优先使用 8080。如果端口已被占用，启动器会选用空闲端口。运行 `CheckStartup.exe` 可以在 `logs/startup-check.json` 的 `loginPortOwners` 查看默认端口的监听程序。实际启动后，`logs/login-startup.json` 会记录选中的端口或错误码。
 
+在缺少 `QueueUserAPC2` 的系统上，启动器和启动检查会自动使用包内的 64 位兼容登录服务。`loginRuntime` 检查会显示实际探测的入口及位数。Windows 7 SP1 需要[单独的兼容构建](BUILD.md#windows-desktop-components)。
+
 本文图片由**原生组件使用虚构数据生成**，不代表公开包内有这些角色。本机组件检查记录见 [VALIDATION.json](../VALIDATION.json)，其他电脑的实际游玩仍需在对应电脑验收。

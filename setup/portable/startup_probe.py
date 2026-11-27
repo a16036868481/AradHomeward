@@ -14,6 +14,7 @@ import struct
 import sys
 
 root = Path(os.environ['DNF60_DIAGNOSTIC_ROOT']).resolve()
+sys.stdout.reconfigure(encoding='utf-8')
 checks = []
 
 
@@ -123,7 +124,7 @@ def native_dependencies():
     windows = Path(os.environ['WINDIR'])
     game = root/'DNF60_ACT12'/'ACT12'
     backend = root/'DNF60_ACT12'/'ACT12_Server'
-    folders = [game, game/'Tenio', backend, backend/'login_service', root/'runtime'/'python']
+    folders = [game, game/'Tenio', backend, backend/'login_service', backend/'login_service_x64_compat', root/'runtime'/'python']
     missing = []
     checked = 0
     for folder in folders:

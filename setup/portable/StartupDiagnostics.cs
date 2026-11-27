@@ -42,7 +42,6 @@ internal static class StartupDiagnostics
         "DNF60_ACT12\\ACT12\\version.dll", "DNF60_ACT12\\ACT12\\Tenio\\TenBase.dll", "DNF60_ACT12\\ACT12\\Tenio\\TenFact.dll",
         "DNF60_ACT12\\ACT12\\Script.pvf", "DNF60_ACT12\\ACT12\\ui\\layout\\QQLogin.xml",
         "DNF60_ACT12\\ACT12_Server\\a12_server.exe", "DNF60_ACT12\\ACT12_Server\\a12_compat_launcher.exe", "DNF60_ACT12\\ACT12_Server\\dnf_a12.sqlite",
-        "DNF60_ACT12\\ACT12_Server\\login_service\\a12_registration_server.exe", "DNF60_ACT12\\ACT12_Server\\login_service\\a12_sqlite3.dll",
         "DNF60_ACT12\\ACT12_Server\\login_service\\private\\registration.pfx", "DNF60_ACT12\\ACT12_Server\\login_service\\private\\certificate-password.txt"};
 
     [STAThread]
@@ -59,9 +58,9 @@ internal static class StartupDiagnostics
 #if PORTABLE
                 InstallPrograms.EnsureLocalIdentity(Root, Path.Combine(Root,"runtime","python","python.exe"));
 #endif
-                var missing=Critical.Where(name=>!File.Exists(Path.Combine(Root,name))).ToArray();
+                var missing=Critical.Concat(InstallPrograms.RequiredLoginFiles).Where(name=>!File.Exists(Path.Combine(Root,name))).ToArray();
                 if(missing.Length>0)throw new FileNotFoundException("缺少文件："+String.Join("、",missing));
-                return new {count=Critical.Length};
+                return new {count=Critical.Length+InstallPrograms.RequiredLoginFiles.Length};
             });
             Check("writableGameFolder",()=>{
                 string path=Path.Combine(Root,"logs","diagnostic-write-"+Guid.NewGuid().ToString("N")+".tmp");
@@ -83,7 +82,7 @@ internal static class StartupDiagnostics
             });
             Check("packageFiles",VerifyManifest);
             Check("bundledRuntime",()=>RunProbe());
-            Check("loginRuntime",()=>RunProcess(Path.Combine(Root,"DNF60_ACT12","ACT12_Server","login_service","a12_registration_server.exe"),"--runtime-info",null,30000));
+            Check("loginRuntime",()=>InstallPrograms.LoginCommand(Root,Path.Combine(Root,"runtime","python","python.exe"),"runtime"));
             Check("loginPortOwners",()=>InstallPrograms.LoginCommand(Root,Path.Combine(Root,"runtime","python","python.exe"),"inspect"));
             var ports=IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners()
                 .Where(p=>new[]{7001,9999,8080,8787}.Contains(p.Port)).Select(p=>new{address=p.Address.ToString(),port=p.Port}).ToArray();

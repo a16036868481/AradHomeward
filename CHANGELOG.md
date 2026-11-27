@@ -1,5 +1,12 @@
 # Changes
 
+## v2.6.0-preview.43 — 2026-11-28
+
+- Start a bundled x64 login service when Windows lacks the API required by the standard CET-compatible apphost. Startup diagnostics report which service runs and its bitness.
+- The separate Windows 7 SP1 x64 compatibility test package uses an x64 .NET 6 login service. The fallback launch, local sign-in and backups were tested on Windows 11 with the unavailable API simulated.
+- 系统缺少相关接口时，启动器自动使用 64 位兼容登录服务。启动检查会显示选用的登录程序和位数。
+- 独立的 Windows 7 SP1 64 位兼容测试包使用 .NET 6 x64 登录服务。已在 Win11 模拟接口缺失时验证启动、账号登录及备份。
+
 ## v2.6.0-preview.42 — 2026-11-27
 
 - Using the Unlimited Owl in town opens the character's warehouse from the inventory or quick bar. It uses the native five-minute cooldown and can be reused.

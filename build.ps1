@@ -21,15 +21,28 @@ if(!(Test-Path -LiteralPath $taskVendorEntry)){
 }
 & $taskCompiler @taskCommon "/out:$taskServiceEntry" (Join-Path $taskPortable 'LegacyServiceEntry.cs')
 if($LASTEXITCODE-ne 0){throw 'Service entry compilation failed.'}
+foreach($taskCheck in @('win10_compat_check.ps1','login_version_check.ps1')){
+    $script=[IO.File]::ReadAllText((Join-Path $taskPortable $taskCheck))
+    [IO.File]::WriteAllText((Join-Path $taskServer $taskCheck),$script,[Text.UTF8Encoding]::new($true))
+}
 if($LoginBackends){
     $loginHashes=@{}
-    foreach($arch in @('x64','x86')){
-        $folder=if($arch -eq 'x64'){'login_service'}else{'login_service_x86'}
+    $variants=if($Windows7Runtime){@('x64-compat')}else{@('x64','x64-compat')}
+    foreach($variant in $variants){
+        $folder=if($variant -eq 'x64'){'login_service'}else{'login_service_x64_compat'}
         $loginDir=Join-Path $taskServer $folder
-        Copy-Item -LiteralPath (Join-Path $LoginBackends "$arch\a12_registration_server.exe") -Destination $loginDir
+        $backendExe=Join-Path $LoginBackends "$variant\a12_registration_server.exe"
+        if(Test-Path -LiteralPath $backendExe -PathType Leaf){
+            [IO.Directory]::CreateDirectory($loginDir) | Out-Null
+            Copy-Item -LiteralPath $backendExe -Destination $loginDir
+        }
+        $sqlite=Join-Path $loginDir 'a12_sqlite3.dll'
+        if(!(Test-Path -LiteralPath $sqlite -PathType Leaf) -and $variant -eq 'x64-compat'){
+            Copy-Item -LiteralPath (Join-Path $taskServer 'login_service\a12_sqlite3.dll') -Destination $sqlite
+        }
         $hashes=@{}
         foreach($file in @('a12_registration_server.exe','a12_sqlite3.dll')){$hashes[$file]=(Get-FileHash -LiteralPath (Join-Path $loginDir $file) -Algorithm SHA256).Hash}
-        $loginHashes[$arch]=$hashes
+        $loginHashes[$variant]=$hashes
     }
     [IO.File]::WriteAllText((Join-Path $taskServer 'login_version_manifest.json'),($loginHashes | ConvertTo-Json -Depth 3),[Text.UTF8Encoding]::new($false))
 }

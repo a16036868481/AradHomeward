@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$SourceDirectory,
     [Parameter(Mandatory=$true)][string]$OutputDirectory,
-    [ValidateSet('net9.0','net6.0')][string]$Framework = 'net9.0'
+    [ValidateSet('net10.0','net9.0','net6.0')][string]$Framework = 'net10.0',
+    [ValidateSet('x64','x64-compat')][string]$Variant = 'x64'
 )
 $ErrorActionPreference='Stop'
 # Build the matching external registration-service source in a scratch directory.
@@ -27,11 +28,11 @@ try {
     Replace-One $web 'Console.WriteLine("网页 GM：本机各 IP 的 8080 端口（仅本机来源可访问）")' 'Console.WriteLine("Local management port: " + LoginManagementPort.Value)'
     Replace-One (Join-Path $scratch.FullName 'GmWebAccessPolicy.cs') 'result.Port != 8080' 'result.Port != LoginManagementPort.Value'
     Replace-One (Join-Path $scratch.FullName 'Program.cs') 'Architecture = RuntimeInformation.ProcessArchitecture.ToString(),' 'ConfigurableManagementPort = true, Architecture = RuntimeInformation.ProcessArchitecture.ToString(),'
-    foreach($arch in @('x64','x86')){
-        $dest=Join-Path $output $arch
-        dotnet publish $project -c Release -r "win-$arch" --source 'https://api.nuget.org/v3/index.json' --self-contained true "-p:PlatformTarget=$arch" -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o $dest --nologo
-        if($LASTEXITCODE -ne 0){throw "Login backend build failed: $Framework $arch"}
-    }
+    $dest=Join-Path $output $Variant
+    # The legacy apphost does not opt into CET on Windows without QueueUserAPC2.
+    $cet=if($Variant -eq 'x64-compat'){'false'}else{'true'}
+    dotnet publish $project -c Release -r win-x64 --source 'https://api.nuget.org/v3/index.json' --self-contained true -p:PlatformTarget=x64 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false "-p:CETCompat=$cet" -o $dest --nologo
+    if($LASTEXITCODE -ne 0){throw "Login backend build failed: $Framework $Variant"}
 } finally {
     $temporaryRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')+'\'
     $resolved=(Resolve-Path -LiteralPath $scratch.FullName).Path

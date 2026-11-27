@@ -47,8 +47,55 @@ def read_json(path):
     return json.loads(path.read_text('utf-8-sig'))
 
 
-def executable(root):
-    return root/'DNF60_ACT12/ACT12_Server/login_service/a12_registration_server.exe'
+def executables(root):
+    server = root/'DNF60_ACT12/ACT12_Server'
+    return tuple(server/folder/'a12_registration_server.exe' for folder in ('login_service', 'login_service_x64_compat'))
+
+
+def legacy_x86_executable(root):
+    return root/'DNF60_ACT12/ACT12_Server/login_service_x86/a12_registration_server.exe'
+
+
+def supports_native_apc():
+    return hasattr(ctypes.WinDLL('kernel32'), 'QueueUserAPC2')
+
+
+def probe_runtime(exe):
+    for path in (exe, exe.with_name('a12_sqlite3.dll')):
+        if not path.is_file():
+            raise StartupError('LOGIN-FILE-MISSING', '缺少 %s/%s，请完整解压游戏包。' % (path.parent.name, path.name))
+    try:
+        result = subprocess.run([str(exe), '--runtime-info'], cwd=str(exe.parent),
+                                capture_output=True, timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
+    except subprocess.TimeoutExpired:
+        raise StartupError('LOGIN-RUNTIME-TIMEOUT', '登录运行库检查超时。') from None
+    except OSError as error:
+        raise StartupError('LOGIN-RUNTIME', 'Windows 无法加载登录服务（系统错误 %s）。' % getattr(error, 'winerror', error.errno)) from None
+    if result.returncode:
+        raise StartupError('LOGIN-RUNTIME', '登录运行库提前退出（0x%08X）。' % (result.returncode & 0xffffffff))
+    try:
+        runtime = json.loads(result.stdout)
+    except ValueError:
+        runtime = None
+    if not isinstance(runtime, dict) or runtime.get('Bitness') != 64:
+        raise StartupError('LOGIN-RUNTIME', '登录服务未报告有效的 64 位运行环境。')
+    return runtime
+
+
+def select_backend(root):
+    standard, compatible = executables(root)
+    # Use the CET-compatible host on systems with the required APC API. The
+    # older-system hosts are also x64 and do not opt in to CET at startup.
+    candidates = (standard, compatible) if supports_native_apc() and standard.is_file() else (compatible,)
+    failures = []
+    for exe in candidates:
+        try:
+            runtime = probe_runtime(exe)
+            return exe, dict(backend=exe.parent.name, runtime=runtime, previousAttempts=failures)
+        except StartupError as error:
+            failures.append(dict(backend=exe.parent.name, code=error.code, message=str(error)))
+    details = ' '.join('%s：%s' % (failure['backend'], failure['message']) for failure in failures)
+    raise StartupError(failures[-1]['code'], details)
 
 
 def process_path(pid):
@@ -98,12 +145,13 @@ def listeners():
 
 def inspect(root):
     table = listeners()
+    images = (*executables(root), legacy_x86_executable(root))
     services = []
     for port, kind in ((9999, 'login'), (8080, 'management')):
         for pid in sorted(table.get(port, ())):
             image = process_path(pid)
             services.append(dict(port=port, kind=kind, pid=pid, process=image.name if image else None,
-                                 thisInstallation=image == executable(root)))
+                                 thisInstallation=image in images))
     return dict(listeners=services)
 
 
@@ -112,7 +160,7 @@ def active_session(root, table=None):
         session = read_json(root/'logs/login-ports.json')
         pid, login, management = (session[k] for k in ('pid', 'loginPort', 'managementPort'))
         if (not isinstance(pid, int) or not 0 < pid <= 0xffffffff or login not in LOGIN_PORTS
-                or management not in MANAGEMENT_PORTS or process_path(pid) != executable(root)):
+                or management not in MANAGEMENT_PORTS or process_path(pid) not in executables(root)):
             return None
         table = listeners() if table is None else table
         if table.get(login) == {pid} and table.get(management) == {pid}:
@@ -209,22 +257,23 @@ def await_ready(child, root, login, management, pin, stderr_file, *, timeout=90)
 
 
 def ensure(root):
-    exe = executable(root)
-    for file in (exe, exe.with_name('a12_sqlite3.dll')):
-        if not file.is_file():
-            raise StartupError('LOGIN-FILE-MISSING', '登录服务缺少 '+file.name+'，请完整解压游戏包。')
     # A verified offline management session belongs to this install and can be reused.
+    images = executables(root)
+    legacy_x86 = legacy_x86_executable(root)
     table = listeners()
     previous = active_session(root, table)
     client = root/'DNF60_ACT12/ACT12/config/registration.json'
     pins = read_json(client)
     if not previous:
+        active_owners = set().union(*(table.get(port, ()) for port in LOGIN_PORTS + MANAGEMENT_PORTS))
+        if any(process_path(pid) == legacy_x86 for pid in active_owners):
+            raise StartupError('LOGIN-RESTART-REQUIRED', '旧登录服务仍在运行。请先退出游戏并用 StopAll.exe 关闭后台服务，再启动新版。')
         for port in LOGIN_PORTS:
             owners = table.get(port, set())
             if len(owners) != 1:
                 continue
             pid = next(iter(owners))
-            if process_path(pid) == exe:
+            if process_path(pid) in images:
                 other = next((p for p in MANAGEMENT_PORTS if table.get(p) == {pid}), None)
                 if other:
                     previous = dict(pid=pid, loginPort=port, managementPort=other)
@@ -238,9 +287,11 @@ def ensure(root):
             save_json(client, dict(pins, Port=previous['loginPort']))
         save_json(root/'logs/login-ports.json', previous)
         return previous
-    config_file = exe.with_name('registration.json')
+    exe, selected = select_backend(root)
+    # Both runtimes use the same settings and the same pinned local identity.
+    config_file = images[0].with_name('registration.json')
     if not config_file.is_file():
-        mirror = exe.parent.parent/'login_service_x86/registration.json'
+        mirror = legacy_x86.with_name('registration.json')
         if mirror.is_file():
             candidate = read_json(mirror)
             # Only shared, install-relative defaults are interchangeable between variants.
@@ -250,35 +301,30 @@ def ensure(root):
                 raise StartupError('LOGIN-CONFIG', '登录配置缺失，另一架构的配置不兼容，请从本机备份恢复。')
             save_json(config_file,defaults)
         else:
-            raise StartupError('LOGIN-CONFIG-MISSING','缺少两份登录服务配置，请从完整包恢复 login_service 中的 registration.json。')
+            raise StartupError('LOGIN-CONFIG-MISSING','缺少登录服务配置，请从完整包恢复 registration.json。')
     config = read_json(config_file)
     if not isinstance(config, dict):
         raise StartupError('LOGIN-CONFIG', '登录服务 registration.json 需要有效的配置对象。')
     if config.get('Bind', '127.0.0.1') != '127.0.0.1':
         raise StartupError('LOGIN-CONFIG', '登录配置的 Bind 应为 127.0.0.1。')
-    database = exe.parent.parent/'dnf_a12.sqlite'
-    if (exe.parent/config.get('Database','../dnf_a12.sqlite')).resolve() != database.resolve():
+    database = config_file.parent.parent/'dnf_a12.sqlite'
+    if (config_file.parent/config.get('Database','../dnf_a12.sqlite')).resolve() != database.resolve():
         raise StartupError('LOGIN-CONFIG-DATABASE', '登录服务和游戏指向不同的存档，请检查 registration.json 的 Database 设置。')
     for attempt in range(3):
         login = pick_port(LOGIN_PORTS)
         management = pick_port(MANAGEMENT_PORTS, management=True)
-        session_config = exe.with_name('registration.session.json')
+        session_config = config_file.with_name('registration.session.json')
         save_json(session_config, dict(config, Port=login))
         env = dict(os.environ, ARAD_LOCAL_MANAGEMENT_PORT=str(management))
-        if management != 8080:
-            probe = subprocess.run([str(exe), '--runtime-info'], cwd=str(exe.parent), env=env,
-                                   capture_output=True, timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
-            if probe.returncode:
-                raise StartupError('LOGIN-RUNTIME','登录运行库没有正常启动，请用 CheckStartup.exe 检查配套 DLL。')
-            if not json.loads(probe.stdout).get('ConfigurableManagementPort'):
-                raise StartupError('LOGIN-MANAGEMENT-UPDATE', '8080 已被占用，请同时更新随包的登录服务，或释放该端口。')
+        if management != 8080 and not selected['runtime'].get('ConfigurableManagementPort'):
+            raise StartupError('LOGIN-MANAGEMENT-UPDATE', '8080 已被占用，请同时更新随包的登录服务，或释放该端口。')
         with tempfile.TemporaryFile() as errors:
             child = subprocess.Popen([str(exe), '--config', str(session_config)], cwd=str(exe.parent), env=env,
                                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=errors,
                                      creationflags=subprocess.CREATE_NO_WINDOW)
             try:
                 await_ready(child, root, login, management, pins['CertificateSha256'], errors)
-                session = dict(pid=child.pid, loginPort=login, managementPort=management)
+                session = dict(pid=child.pid, loginPort=login, managementPort=management, backend=selected['backend'])
                 if pins.get('Port') != login:
                     save_json(client, dict(pins, Port=login))
                 save_json(root/'logs/login-ports.json', session)
@@ -298,6 +344,8 @@ def main(operation, root):
     try:
         if operation == 'inspect':
             data = inspect(root)
+        elif operation == 'runtime':
+            _, data = select_backend(root)
         elif operation == 'ensure':
             data = ensure(root)
         elif operation == 'backup':
@@ -325,4 +373,5 @@ def main(operation, root):
 
 
 if __name__ == '__main__':
+    sys.stdout.reconfigure(encoding='utf-8')
     raise SystemExit(main(sys.argv[1], ROOT))

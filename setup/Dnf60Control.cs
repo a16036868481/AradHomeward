@@ -444,7 +444,7 @@ internal static partial class Dnf60Control
             int login=Convert.ToInt32(data["loginPort"]),management=Convert.ToInt32(data["managementPort"]);
             if((login!=9999&&(login<19099||login>19114))||(management!=8080&&(management<18080||management>18095)))return false;
             using(var child=Process.GetProcessById(Convert.ToInt32(data["pid"])))
-                return !child.HasExited && String.Equals(child.MainModule.FileName,Path.Combine(Server,"login_service","a12_registration_server.exe"),StringComparison.OrdinalIgnoreCase)
+                return !child.HasExited && InstallPrograms.IsLoginBackend(Server, child.MainModule.FileName)
                        && Open(login) && Open(management);
         }
         catch(Exception){return false;}
@@ -653,10 +653,11 @@ internal static partial class Dnf60Control
     private static void StopOrphanRegistration()
     {
         if(Owned(Server).Any(p=>SafeName(p)=="a12_server"))throw new InvalidOperationException("游戏服务仍在运行，不能重启离线管理服务。");
-        string expected=Path.Combine(Server,"login_service","a12_registration_server.exe");
         foreach(var p in Owned(Server).Where(p=>SafeName(p)=="a12_registration_server"))
         {
-            if(!String.Equals(p.MainModule.FileName,expected,StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("登录进程身份不符。");
+            string image=p.MainModule.FileName;
+            if(!InstallPrograms.IsLoginBackend(Server, image) && !InstallPrograms.IsLegacyX86LoginBackend(Server, image))
+                throw new InvalidOperationException("登录进程身份不符。");
             p.Kill();if(!p.WaitForExit(8000))throw new InvalidOperationException("离线管理服务未退出。");
         }
     }
@@ -729,8 +730,8 @@ internal static partial class Dnf60Control
     private static void CheckPortableFiles()
     {
         string pythonBase=Path.Combine("runtime","python",InstallPrograms.PythonTag);
-        string[] required={InstallPrograms.Trainer,"trainer\\server.py","trainer\\local_profiles.py","trainer\\catalog.json","trainer\\growth.json",pythonBase+"._pth",pythonBase+".zip",pythonBase+".dll","DNF60_ACT12\\ACT12\\"+InstallPrograms.LegacyLauncher,"DNF60_ACT12\\ACT12\\a12_profiles.dll","DNF60_ACT12\\ACT12_Server\\a12_server.exe","DNF60_ACT12\\ACT12_Server\\a12_compat_launcher.exe","DNF60_ACT12\\ACT12_Server\\dnf_a12.sqlite","DNF60_ACT12\\ACT12_Server\\login_service\\a12_registration_server.exe"};
-        var missing=required.Where(p=>!File.Exists(Path.Combine(Root,p))).ToArray();
+        string[] required={InstallPrograms.Trainer,"trainer\\server.py","trainer\\local_profiles.py","trainer\\catalog.json","trainer\\growth.json",pythonBase+"._pth",pythonBase+".zip",pythonBase+".dll","DNF60_ACT12\\ACT12\\"+InstallPrograms.LegacyLauncher,"DNF60_ACT12\\ACT12\\a12_profiles.dll","DNF60_ACT12\\ACT12_Server\\a12_server.exe","DNF60_ACT12\\ACT12_Server\\a12_compat_launcher.exe","DNF60_ACT12\\ACT12_Server\\dnf_a12.sqlite"};
+        var missing=required.Concat(InstallPrograms.RequiredLoginFiles).Where(p=>!File.Exists(Path.Combine(Root,p))).ToArray();
         string python=PythonRuntime();
         var report=new Dictionary<string,object>{{"root",Root},{"python",python},{"bundledPython",String.Equals(python,Path.Combine(Root,"runtime","python","pythonw.exe"),StringComparison.OrdinalIgnoreCase)},{"missing",missing},{"is64BitWindows",Environment.Is64BitOperatingSystem},{"version",typeof(Dnf60Control).Assembly.GetName().Version.ToString()}};
         Directory.CreateDirectory(LogDir);

@@ -17,8 +17,10 @@ class LoginStartupTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        self.primary = service.executable(self.root).parent/'private'
-        self.mirror = self.primary.parent.parent/'login_service_x86/private'
+        self.standard, self.compatible = service.executables(self.root)
+        self.legacy_x86 = service.legacy_x86_executable(self.root)
+        self.primary = self.standard.parent/'private'
+        self.mirror = self.legacy_x86.parent/'private'
         self.client = self.root/'DNF60_ACT12/ACT12/config/registration.json'
 
     def test_recover_verified_mirror_after_interrupted_setup(self):
@@ -53,12 +55,60 @@ class LoginStartupTests(unittest.TestCase):
 
     def test_stale_pid_and_hijacked_port_do_not_receive_requests(self):
         service.save_json(self.root/'logs/login-ports.json',dict(pid=12,loginPort=9999,managementPort=8080))
-        with patch.object(service,'process_path',return_value=service.executable(self.root)), \
+        with patch.object(service,'process_path',return_value=self.compatible), \
              patch.object(service,'listeners',return_value={9999:{12},8080:{22}}), \
              patch('http.client.HTTPConnection') as http:
             with self.assertRaisesRegex(service.StartupError,'管理服务'):
                 service.management_request(self.root,'/api/backups/create',{})
             http.assert_not_called()
+
+    def test_windows_without_special_apc_probes_compatible_x64_directly(self):
+        with patch.object(service, 'supports_native_apc', return_value=False), \
+             patch.object(service, 'probe_runtime', return_value={'Bitness': 64}) as probe:
+            image, info = service.select_backend(self.root)
+        self.assertEqual(image, self.compatible)
+        self.assertEqual(info['runtime']['Bitness'], 64)
+        probe.assert_called_once_with(self.compatible)
+
+    def test_standard_runtime_failure_uses_compatible_x64(self):
+        self.standard.parent.mkdir(parents=True)
+        self.standard.touch()
+        failures = [service.StartupError('LOGIN-RUNTIME', 'x64 initialization failure'), {'Bitness': 64}]
+        with patch.object(service, 'supports_native_apc', return_value=True), \
+             patch.object(service, 'probe_runtime', side_effect=failures) as probe:
+            image, info = service.select_backend(self.root)
+        self.assertEqual(image, self.compatible)
+        self.assertEqual(info['previousAttempts'][0]['code'], 'LOGIN-RUNTIME')
+        self.assertEqual([call.args for call in probe.call_args_list], [(self.standard,), (self.compatible,)])
+
+    def test_compatible_x64_session_is_reused_only_from_this_installation(self):
+        session = dict(pid=12, loginPort=9999, managementPort=8080)
+        table = {9999: {12}, 8080: {12}}
+        service.save_json(self.root/'logs/login-ports.json', session)
+        with patch.object(service, 'process_path', return_value=self.compatible):
+            self.assertEqual(service.active_session(self.root, table), session)
+        for image in (self.legacy_x86, self.root/'other'/self.compatible.name):
+            with patch.object(service, 'process_path', return_value=image):
+                self.assertIsNone(service.active_session(self.root, table))
+
+    def test_upgrade_does_not_start_a_second_backend_while_old_x86_is_running(self):
+        service.save_json(self.client, {'CertificateSha256': '0'*64})
+        with patch.object(service, 'process_path', return_value=self.legacy_x86), \
+             patch.object(service, 'listeners', return_value={9999: {12}, 8080: {12}}), \
+             patch.object(service, 'select_backend') as select:
+            with self.assertRaises(service.StartupError) as error:
+                service.ensure(self.root)
+            self.assertEqual(error.exception.code, 'LOGIN-RESTART-REQUIRED')
+            select.assert_not_called()
+
+    def test_runtime_probe_rejects_a_32_bit_binary(self):
+        self.compatible.parent.mkdir(parents=True)
+        self.compatible.touch()
+        self.compatible.with_name('a12_sqlite3.dll').touch()
+        result = subprocess.CompletedProcess([], 0, b'{"Bitness":32}')
+        with patch.object(service.subprocess, 'run', return_value=result):
+            with self.assertRaisesRegex(service.StartupError, '64 位'):
+                service.probe_runtime(self.compatible)
 
     def test_slow_login_can_be_ready_after_twelve_seconds(self):
         child = Mock(pid=77)

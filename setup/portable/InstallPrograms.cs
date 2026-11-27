@@ -41,6 +41,26 @@ internal static class InstallPrograms
         return build;
     }
 
+    internal static bool IsLoginBackend(string server, string image)
+    {
+        const string file = "a12_registration_server.exe";
+        return String.Equals(image, Path.Combine(server, "login_service", file), StringComparison.OrdinalIgnoreCase) ||
+               String.Equals(image, Path.Combine(server, "login_service_x64_compat", file), StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static bool IsLegacyX86LoginBackend(string server, string image)
+    {
+        return String.Equals(image, Path.Combine(server, "login_service_x86", "a12_registration_server.exe"), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private const string LoginRoot = @"DNF60_ACT12\ACT12_Server\";
+    internal static readonly string[] RequiredLoginFiles = {
+#if !WINDOWS7_RUNTIME
+        LoginRoot + @"login_service\a12_registration_server.exe", LoginRoot + @"login_service\a12_sqlite3.dll",
+#endif
+        LoginRoot + @"login_service_x64_compat\a12_registration_server.exe", LoginRoot + @"login_service_x64_compat\a12_sqlite3.dll"
+    };
+
     internal static void EnsureLocalIdentity(string root, string python)
     {
         string script = Path.Combine(root, "trainer", "first_run.py");
@@ -84,7 +104,8 @@ internal static class InstallPrograms
             var error=child.StandardError.ReadToEndAsync();
             // The helper owns its launched backend and cleans up each failed attempt.
             // Its bounded waits include first .NET extraction, HTTP readiness and bind-race retries.
-            if(!child.WaitForExit(command=="ensure"?400000:command=="backup"?45000:15000))
+            int timeout = command == "ensure" ? 400000 : command == "runtime" ? 70000 : command == "backup" ? 45000 : 15000;
+            if(!child.WaitForExit(timeout))
             {
                 child.Kill();child.WaitForExit();
                 throw new TimeoutException("[LOGIN-HELPER-TIMEOUT] 本机登录组件未响应，请运行 CheckStartup.exe。");
