@@ -63,6 +63,18 @@ namespace Dnf60Desktop
         private static readonly List<TipBinding> tips=new List<TipBinding>();
         private static readonly Regex placeholder=new Regex(@"\{(?<n>\d+)(?:,-?\d+)?(?::[^{}]*)?\}",RegexOptions.CultureInvariant);
         private static readonly string[] supported={"zh-Hans","zh-Hant","en-US","ja-JP","ko-KR"};
+        private static readonly string[][] townSpeedText =
+        {
+            new[] { "城镇移动速度", "城鎮移動速度", "Town movement speed", "街での移動速度", "마을 이동 속도" },
+            new[] { "0% 停止移动，100% 为原速。", "0% 停止移動，100% 為原速。", "0% stops movement. 100% is normal speed.",
+                "0% で移動停止、100% で通常の速度。", "0%는 이동 정지, 100%는 기본 속도입니다." },
+            new[] { "请输入 0–100 的整数。", "請輸入 0–100 的整數。", "Enter a whole number from 0 to 100.",
+                "0～100 の整数を入力してください。", "0~100 사이의 정수를 입력하세요." },
+            new[] { "城镇移动速度已保存。", "城鎮移動速度已儲存。", "Town movement speed saved.",
+                "街での移動速度を保存しました。", "마을 이동 속도를 저장했습니다." },
+            new[] { "城镇移动速度保存失败，请重试。", "城鎮移動速度儲存失敗，請重試。", "Could not save the town movement speed. Try again.",
+                "街での移動速度を保存できませんでした。再試行してください。", "마을 이동 속도를 저장하지 못했습니다. 다시 시도하세요." }
+        };
         private static volatile LanguageState current;
         private static string checkInstallation,checkLocale;
         private static System.Windows.Forms.Timer timer;
@@ -140,6 +152,9 @@ namespace Dnf60Desktop
         {
             var state=new LanguageState {Locale=locale};
             ReadJson(Path.Combine(Folder,"trainer",locale+".json"),state.Ui);
+            int language = Array.IndexOf(supported, locale);
+            foreach (string[] translations in townSpeedText)
+                state.Ui[translations[0]] = translations[language];
             ReadPack(Path.Combine(Folder,"packs",locale+".arlp"),state.Content);
             ReadJson(Path.Combine(Folder,"trainer","content-"+locale+".json"),state.Content);
             foreach(var row in state.Ui)if(row.Key!=row.Value&&placeholder.IsMatch(row.Key))

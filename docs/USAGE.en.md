@@ -4,11 +4,11 @@
 
 ## 1. Download and extract
 
-Extract the whole `AradHomeward-v2.6.0-preview.40-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
+Extract the whole `AradHomeward-v2.6.0-preview.41-win-x64.zip` to a new writable local folder, such as `D:\Games\AradHomeward`. Open `AradHomeward.exe` directly in that folder.
 
 Keep the extracted files and folders together. The standard package requires Windows 10 (1607 or later) or Windows 11 x64.
 
-To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.40-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
+To verify integrity in PowerShell, run `Get-FileHash .\AradHomeward-v2.6.0-preview.41-win-x64.zip -Algorithm SHA256` and compare the result with `SHA256SUMS.txt`.
 
 ## 2. Choose a mode and create a local account
 
@@ -26,7 +26,7 @@ The local server creates the internal credentials automatically. Keep the extrac
 
 In the game, open **System menu → Settings** from the bottom bar. Choose **Window size** and select **Save**. The 13 presets keep the game at 4:3, from 640 × 480 to 2880 × 2160. Larger sizes include 1344 × 1008, 1440 × 1080, 1600 × 1200, 1760 × 1320, 1920 × 1440, 2048 × 1536, 2560 × 1920 and 2880 × 2160. **Fit to screen** uses the available space automatically. The chat pane scales with the game, and oversized presets shrink to fit both windows on the desktop. Maximized mode uses the available desktop area and full-screen mode uses the whole monitor. Switching back to windowed mode restores the selected preset.
 
-Select **Controls** in the same window. **Town movement** cycles through 100%, 75%, 50% and 25% of your character's usual walking speed with their current equipment. **Hold to repeat** defaults to **Off**. Select **On** or **Off**, then choose **Save** to apply it immediately. **Repeat rate** offers 4, 8 or 12 inputs per second and defaults to 8. **Repeat key** defaults to **X** and accepts any letter or number key. Your rate and key are remembered when you switch repeat off. In a dungeon, hold the configured key to repeat and release it to let the current action finish.
+Select **Controls** in the same window. **Hold to repeat** defaults to **Off**. Select **On** or **Off**, then choose **Save** to apply it immediately. **Repeat rate** offers 4, 8 or 12 inputs per second and defaults to 8. **Repeat key** defaults to **X** and accepts any letter or number key. Your rate and key are remembered when you switch repeat off. In a dungeon, hold the configured key to repeat and release it to let the current action finish.
 
 Under **Controls → Gamepad** you can configure an Xbox or other XInput controller. Click a binding and press the keyboard key you want to assign. Press **Delete** to clear a binding. By default the left stick or D-pad moves, **X** attacks, **A** jumps and **Y** uses a skill. Hold **LB**, **RB** or both while pressing a face button for more shortcuts. Select **Save** to apply your changes. For room play, install the controls update on both PCs.
 
@@ -52,13 +52,15 @@ Both PCs use the same build and share a LAN or a virtual LAN such as Radmin VPN.
 
 Create or choose a character in the game. The native trainer opens with the game. You can make supported online edits in town or in Seria's room. Choose your character at the top right of the trainer.
 
+Under **Overview → Town movement speed**, enter a whole number from 0 to 100 and select **Save** or press **Enter**. Return to the game to use the new speed. At 0%, town movement stops. At 100%, your character moves at the usual speed for their current equipment.
+
 On first use of an output device, the game sets its default mixer volume to one quarter of that device's current Windows volume. For example, 40% in Windows sets the game to 10%. Adjustments in Windows Volume Mixer are used on later starts.
 
 ![Items page with example icons](images/trainer-items-en-US.png)
 
 | Page | Use |
 | --- | --- |
-| Overview | Character status and shortcuts |
+| Overview | Character status, town movement speed and shortcuts |
 | Character | Gold, Cera, level, SP, class and attributes |
 | Items | Search, multi-select, quantities, reinforcement, amplification, inventory and avatars |
 | Gameplay | Mail, quests, contracts and rewards |
@@ -78,6 +80,8 @@ Choose **End Game inside the game**. The session manager closes the related trai
 The primary save is `DNF60_ACT12/ACT12_Server/dnf_a12.sqlite`. Automatic backups are stored under `backups/`. Accounts and the local login certificate belong to this extracted installation. Each PC keeps its own saves.
 
 To move your progress, exit normally on both PCs and copy the **entire extracted folder**. This keeps the save, account secrets, certificate and settings together. Before updating or restoring, keep a separate copy of your current installation. Do not replace an existing save with the empty save from a new public download.
+
+To keep the movement speed when upgrading into a new folder, copy `setup/gameplay.ini` to the corresponding location. If you have already saved a speed in the trainer, also copy `setup/town-speed.txt`.
 
 ## Troubleshooting
 

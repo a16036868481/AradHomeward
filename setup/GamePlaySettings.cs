@@ -20,9 +20,9 @@ internal sealed class GamePlaySettings
     internal int WindowScale = 100;
     internal GameDisplayMode DisplayMode;
     internal bool GamepadEnabled = true;
-    internal static readonly int[] TownSpeeds = { 100, 75, 50, 25 };
+    internal const int FullTownSpeed = 100;
     internal static readonly int[] RepeatRates = { 4, 8, 12 };
-    internal int TownSpeed = 100;
+    internal int LegacyTownSpeed = FullTownSpeed;
     internal bool RepeatEnabled;
     internal int RepeatRate = 8;
     internal Keys RepeatKey = Keys.X;
@@ -46,6 +46,45 @@ internal sealed class GamePlaySettings
     private static string SettingsPath(string root)
     {
         return Path.Combine(root, "setup", "gameplay.ini");
+    }
+
+    private static string TownSpeedPath(string root)
+    {
+        return Path.Combine(root, "setup", "town-speed.txt");
+    }
+
+    internal static bool TryParseTownSpeed(string text, out int percent)
+    {
+        text = text.Trim();
+        if (text.EndsWith("%", StringComparison.Ordinal))
+            text = text.Substring(0, text.Length - 1);
+        return Int32.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out percent) &&
+            percent >= 0 && percent <= FullTownSpeed;
+    }
+
+    internal static int LoadTownSpeed(string root, int fallback)
+    {
+        string file = TownSpeedPath(root);
+        if (!File.Exists(file)) return fallback;
+        try
+        {
+            // The GM tool can replace the setting while the game session is reading it.
+            using (var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            using (var reader = new StreamReader(stream))
+            {
+                int percent;
+                if (TryParseTownSpeed(reader.ReadToEnd(), out percent)) return percent;
+            }
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        return fallback;
+    }
+
+    internal static void SaveTownSpeed(string root, int percent)
+    {
+        if (percent < 0 || percent > FullTownSpeed) throw new ArgumentOutOfRangeException("percent");
+        WriteSettings(TownSpeedPath(root), new[] { percent.ToString(CultureInfo.InvariantCulture) });
     }
 
     internal static GamePlaySettings Load(string root)
@@ -73,7 +112,7 @@ internal sealed class GamePlaySettings
                 if (key == "GamepadKeys") settings.LoadBindings(value);
                 int number;
                 if (!Int32.TryParse(value, out number)) continue;
-                if (key == "TownSpeed" && TownSpeeds.Contains(number)) settings.TownSpeed = number;
+                if (key == "TownSpeed" && number >= 0 && number <= FullTownSpeed) settings.LegacyTownSpeed = number;
                 if (key == "RepeatEnabled" && (number == 0 || number == 1)) repeatEnabled = number == 1;
                 if (key == "RepeatRate" && (number == 0 || RepeatRates.Contains(number))) storedRate = number;
                 if (key == "RepeatKey" && CanRepeat((Keys)number)) settings.RepeatKey = (Keys)number;
@@ -101,20 +140,25 @@ internal sealed class GamePlaySettings
 
     internal void Save(string root)
     {
-        string file = SettingsPath(root);
+        string keys = String.Join(",", Bindings.Select(key => ((int)key).ToString(CultureInfo.InvariantCulture)));
+        WriteSettings(SettingsPath(root), new[] { "[Gameplay]",
+            "WindowScale=" + WindowScale.ToString(CultureInfo.InvariantCulture),
+            "DisplayMode=" + ((int)DisplayMode).ToString(CultureInfo.InvariantCulture),
+            "GamepadEnabled=" + (GamepadEnabled ? "1" : "0"), "GamepadKeys=" + keys,
+            // Keep the original value until the GM tool writes its own setting.
+            "TownSpeed=" + LegacyTownSpeed.ToString(CultureInfo.InvariantCulture),
+            "RepeatEnabled=" + (RepeatEnabled ? "1" : "0"),
+            "RepeatRate=" + RepeatRate.ToString(CultureInfo.InvariantCulture),
+            "RepeatKey=" + ((int)RepeatKey).ToString(CultureInfo.InvariantCulture) });
+    }
+
+    private static void WriteSettings(string file, string[] lines)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(file));
         string temporary = file + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        string keys = String.Join(",", Bindings.Select(key => ((int)key).ToString(CultureInfo.InvariantCulture)));
         try
         {
-            File.WriteAllLines(temporary, new[] { "[Gameplay]",
-                "WindowScale=" + WindowScale.ToString(CultureInfo.InvariantCulture),
-                "DisplayMode=" + ((int)DisplayMode).ToString(CultureInfo.InvariantCulture),
-                "GamepadEnabled=" + (GamepadEnabled ? "1" : "0"), "GamepadKeys=" + keys,
-                "TownSpeed=" + TownSpeed.ToString(CultureInfo.InvariantCulture),
-                "RepeatEnabled=" + (RepeatEnabled ? "1" : "0"),
-                "RepeatRate=" + RepeatRate.ToString(CultureInfo.InvariantCulture),
-                "RepeatKey=" + ((int)RepeatKey).ToString(CultureInfo.InvariantCulture) }, Encoding.ASCII);
+            File.WriteAllLines(temporary, lines, Encoding.ASCII);
             if (File.Exists(file)) File.Replace(temporary, file, null);
             else File.Move(temporary, file);
         }

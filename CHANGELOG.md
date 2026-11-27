@@ -1,5 +1,12 @@
 # Changes
 
+## v2.6.0-preview.41 — 2026-11-27
+
+- In the native trainer, open **Overview → Town movement speed** and enter a whole percentage from 0 to 100. Save to apply it in town. Existing speed preferences carry forward.
+- Fixed interruptions in the town walking animation when moving at a reduced speed.
+- 城镇移动速度移到 GM 工具的「概览」。可输入 0–100 的整数，保存后在城镇生效，旧速度设置会自动沿用。
+- 修复减速后按住方向键行走时动画反复停顿的问题。
+
 ## v2.6.0-preview.40 — 2026-11-27
 
 - Under **Settings → Controls**, set town movement to 25%, 50%, 75% or 100% of your character's usual pace with their current equipment.

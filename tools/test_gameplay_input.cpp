@@ -33,18 +33,14 @@ int main()
         key.Sample(setting, false, true, start + 3011);
         assert(!key.Shaping());
     }
-    for (unsigned rate : {25u, 50u, 75u, 100u})
+    const float nativeMultiplier = 1.25f;
+    for (unsigned rate = 0; rate <= 100; ++rate)
     {
-        TownPace pace;
-        unsigned total = 0, forwarded = 0;
-        for (unsigned i = 0; i < 1000; ++i)
-        {
-            const unsigned elapsed = 6 + (i * 7u) % 13u;
-            if (pace.Sample(rate, true, 0xffffff00u + total)) forwarded += elapsed;
-            total += elapsed;
-        }
-        assert(std::abs(static_cast<int>(forwarded * 100) - static_cast<int>(total * rate)) < 2500);
-        assert(pace.Sample(rate, false, total));
-        assert(pace.Sample(rate, true, total + 200));
+        const float expected = nativeMultiplier * rate / 100.0f;
+        assert(std::abs(ScaleTownSpeed(nativeMultiplier, rate + 1) - expected) < 0.00001f);
+        assert(std::abs(ScaleTownSpeed(-nativeMultiplier, rate + 1) + expected) < 0.00001f);
+        assert(ScaleTownSpeed(0.0f, rate + 1) == 0.0f);
     }
+    for (unsigned setting : {0u, 125u})
+        assert(ScaleTownSpeed(nativeMultiplier, setting) == nativeMultiplier);
 }

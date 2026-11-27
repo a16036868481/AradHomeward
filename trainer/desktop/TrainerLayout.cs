@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -150,8 +151,79 @@ namespace Dnf60Desktop
             var shortcuts=new TableLayoutPanel {Dock=DockStyle.Top,Height=216,ColumnCount=2,RowCount=2,BackColor=Theme.Bg};shortcuts.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));shortcuts.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));shortcuts.RowStyles.Add(new RowStyle(SizeType.Percent,50));shortcuts.RowStyles.Add(new RowStyle(SizeType.Percent,50));
             shortcuts.Controls.Add(new DashboardTile(TrainerLanguage.T("修改角色属性"),TrainerLanguage.T("金币、点券、等级和技能点"),1,(s,e)=>NavigateSection(1,0)),0,0);shortcuts.Controls.Add(new DashboardTile(TrainerLanguage.T("批量发放物品"),TrainerLanguage.T("搜索图标和名称，多选并设置数量"),2,(s,e)=>NavigateSection(2,0)),1,0);shortcuts.Controls.Add(new DashboardTile(TrainerLanguage.T("管理游戏频道"),TrainerLanguage.T("查看频道，选择开放范围"),4,(s,e)=>NavigateSection(4,1)),0,1);shortcuts.Controls.Add(new DashboardTile(TrainerLanguage.T("备份与恢复存档"),TrainerLanguage.T("创建备份、导出或恢复角色"),5,(s,e)=>NavigateSection(5,0)),1,1);
             var info=new SurfacePanel {Dock=DockStyle.Top,Height=116,Padding=new Padding(18)};var infoTitle=Theme.Label(TrainerLanguage.T("本机状态"),11,Theme.Text);infoTitle.Font=new Font(infoTitle.Font,FontStyle.Bold);infoTitle.Location=new Point(18,17);info.Controls.Add(infoTitle);dashboardHint=Theme.Label(TrainerLanguage.T("正在连接本机游戏服务…"),9,Theme.Muted);dashboardHint.AutoSize=false;dashboardHint.Size=new Size(900,60);dashboardHint.Location=new Point(19,46);info.Controls.Add(dashboardHint);info.Resize+=(s,e)=>dashboardHint.Width=Math.Max(300,info.Width-35);
-            scroll.Controls.Add(info);scroll.Controls.Add(shortcuts);scroll.Controls.Add(shortcutsTitle);scroll.Controls.Add(metrics);
+            scroll.Controls.Add(info);scroll.Controls.Add(shortcuts);scroll.Controls.Add(shortcutsTitle);
+            scroll.Controls.Add(BuildTownSpeed());scroll.Controls.Add(metrics);
         }
+
+        private Control BuildTownSpeed()
+        {
+            var card = new SurfacePanel { Dock = DockStyle.Top, Height = 81, Padding = new Padding(16, 9, 16, 9) };
+            var fields = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 2 };
+            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            for (int i = 0; i < 3; i++) fields.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            fields.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            fields.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+
+            var heading = Theme.Label("城镇移动速度", 11, Theme.Text);
+            heading.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            var hint = Theme.Label("0% 停止移动，100% 为原速。", 9, Theme.Muted);
+            hint.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            fields.Controls.Add(heading, 0, 0);
+            fields.Controls.Add(hint, 0, 1);
+
+            int saved = GamePlaySettings.LoadTownSpeed(Program.Root, GamePlaySettings.Load(Program.Root).LegacyTownSpeed);
+            var input = Theme.TextBox("城镇移动速度", saved.ToString(CultureInfo.InvariantCulture));
+            input.Width = 78;
+            input.Anchor = AnchorStyles.None;
+            input.TextAlign = HorizontalAlignment.Right;
+            var unit = Theme.Label("%", 10, Theme.Muted);
+            unit.Anchor = AnchorStyles.None;
+            var save = Theme.Button("保存", (s, e) => SaveTownSpeed(input), true);
+            save.Anchor = AnchorStyles.None;
+            input.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode != Keys.Enter) return;
+                e.SuppressKeyPress = true;
+                SaveTownSpeed(input);
+            };
+            fields.Controls.Add(input, 1, 0);
+            fields.Controls.Add(unit, 2, 0);
+            fields.Controls.Add(save, 3, 0);
+            fields.SetRowSpan(input, 2);
+            fields.SetRowSpan(unit, 2);
+            fields.SetRowSpan(save, 2);
+            card.Controls.Add(fields);
+            return card;
+        }
+
+        private void SaveTownSpeed(TextBox input)
+        {
+            int percent;
+            if (!GamePlaySettings.TryParseTownSpeed(input.Text, out percent))
+            {
+                SetStatus("请输入 0–100 的整数。", true);
+                input.Focus();
+                input.SelectAll();
+                return;
+            }
+            try
+            {
+                GamePlaySettings.SaveTownSpeed(Program.Root, percent);
+                input.Text = percent.ToString(CultureInfo.InvariantCulture);
+                SetStatus("城镇移动速度已保存。", false);
+            }
+            catch (IOException error)
+            {
+                SetStatus("城镇移动速度保存失败，请重试。", true);
+                Log(error);
+            }
+            catch (UnauthorizedAccessException error)
+            {
+                SetStatus("城镇移动速度保存失败，请重试。", true);
+                Log(error);
+            }
+        }
+
         private void UpdateDashboard()
         {
             if(dashboardValues.Count==0)return;

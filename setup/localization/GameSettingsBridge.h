@@ -11,13 +11,13 @@ namespace AradGameSettings
 {
     constexpr wchar_t endpointProperty[] = L"AradHomeward.GamePreferences";
     constexpr wchar_t screenModeProperty[] = L"AradHomeward.NativeScreenMode";
+    constexpr wchar_t townSpeedProperty[] = L"AradHomeward.TownSpeedPercent";
     constexpr ULONG_PTR packet = 0x41524832;
     constexpr UINT sendFlags = SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT;
     constexpr int windowed = 0, maximized = 1, fullScreen = 2, nativeScreenOption = 4;
     constexpr int gameSettingsTab = 1, bindingCount = 22, defaultBinding = 0x100;
     constexpr int baseFields = bindingCount + 3, actionFields = baseFields + 3;
-    constexpr int townRow = 44, repeatRow = 87, frequencyRow = 119, keyRow = 151, padRow = 215;
-    constexpr int townSpeeds[] = {100, 75, 50, 25};
+    constexpr int repeatRow = 44, frequencyRow = 76, keyRow = 108, padRow = 172;
     constexpr int repeatRates[] = {4, 8, 12};
     constexpr int legacyRepeatRates[] = {0, 4, 8, 12};
     constexpr int scales[] = {100, 125, 150, 175, 200, 210, 225, 250, 275, 300, 320, 400, 450, 0};
@@ -25,7 +25,7 @@ namespace AradGameSettings
 
     struct Preferences
     {
-        int display, scale, padEnabled, keys[bindingCount], townSpeed, repeatRate, repeatKey, repeatEnabled;
+        int display, scale, padEnabled, keys[bindingCount], legacyTownSpeed, repeatRate, repeatKey, repeatEnabled;
     };
 
     static_assert(sizeof(Preferences) == (actionFields + 1) * sizeof(int), "Game preferences packet");
@@ -56,13 +56,13 @@ namespace AradGameSettings
         L"LB+RB X", L"LB+RB A", L"LB+RB Y", L"LB+RB B", L"Start", L"Back"
     };
 
-    struct ActionLabels { const wchar_t *controls, *actions, *town, *repeat, *frequency, *key, *keyHint; };
+    struct ActionLabels { const wchar_t *controls, *actions, *repeat, *frequency, *key, *keyHint; };
     constexpr ActionLabels actionLabels[] = {
-        {L"操作", L"角色操作", L"城镇移动速度", L"按住连发", L"连发频率", L"连发键", L"请选择字母键或数字键"},
-        {L"操作", L"角色操作", L"城鎮移動速度", L"按住連發", L"連發頻率", L"連發鍵", L"請選擇字母鍵或數字鍵"},
-        {L"Controls", L"Actions", L"Town movement", L"Hold to repeat", L"Repeat rate", L"Repeat key", L"Press a letter or number key"},
-        {L"操作", L"キャラ操作", L"街での移動速度", L"長押し連射", L"連射頻度", L"連射キー", L"英字か数字キーを押してください"},
-        {L"조작", L"캐릭터 조작", L"마을 이동 속도", L"누르고 연타", L"연타 빈도", L"연타 키", L"영문 또는 숫자 키를 누르세요"}
+        {L"操作", L"角色操作", L"按住连发", L"连发频率", L"连发键", L"请选择字母键或数字键"},
+        {L"操作", L"角色操作", L"按住連發", L"連發頻率", L"連發鍵", L"請選擇字母鍵或數字鍵"},
+        {L"Controls", L"Actions", L"Hold to repeat", L"Repeat rate", L"Repeat key", L"Press a letter or number key"},
+        {L"操作", L"キャラ操作", L"長押し連射", L"連射頻度", L"連射キー", L"英字か数字キーを押してください"},
+        {L"조작", L"캐릭터 조작", L"누르고 연타", L"연타 빈도", L"연타 키", L"영문 또는 숫자 키를 누르세요"}
     };
     enum class Page { Game, Actions, Pad };
 
@@ -71,6 +71,7 @@ namespace AradGameSettings
     using UpdateWindow = void (__thiscall*)(void*);
     using DestroyWindow = void* (__thiscall*)(void*, unsigned);
     using PollKeyboard = HRESULT (__thiscall*)(void*);
+    using ReadTownMultiplier = float (__thiscall*)(void*);
     using ReadImeKey = UINT (WINAPI*)(HWND);
     using ReadOption = int (__thiscall*)(void*, int);
     using WriteOption = bool (__thiscall*)(void*, int, int);
@@ -105,7 +106,7 @@ namespace AradGameSettings
         void* padTab;
         void* enabled;
         void* defaults;
-        void *townSpeed, *repeatSwitch, *repeatRate, *repeatKey, *openPad, *backToActions;
+        void *repeatSwitch, *repeatRate, *repeatKey, *openPad, *backToActions;
         void* bindings[bindingCount];
         Preferences values;
         bool ready, active, extended, canToggleRepeat, saveError;
@@ -124,8 +125,7 @@ namespace AradGameSettings
     static const Labels* text = &localized[0];
     static const ActionLabels& Actions() { return actionLabels[text - localized]; }
     static HoldRepeat repeat;
-    static TownPace pace;
-    static void SuspendInput() { repeat.Suspend(); pace.Reset(); }
+    static void SuspendInput() { repeat.Suspend(); }
     static OpenWindow openOriginal;
     static DrawWindow drawOriginal;
     static UpdateWindow updateOriginal, closeOriginal, finishOriginal;
@@ -204,8 +204,9 @@ namespace AradGameSettings
             values.keys[i] = ReadPreference(endpoint, i + 3);
             if (values.keys[i] < 0) return false;
         }
-        values.townSpeed = ReadPreference(endpoint, baseFields);
-        ui.extended = values.townSpeed >= 0;
+        // Keep the existing packet layout so display, controller and repeat still save together.
+        values.legacyTownSpeed = ReadPreference(endpoint, baseFields);
+        ui.extended = values.legacyTownSpeed >= 0;
         ui.canToggleRepeat = false;
         if (ui.extended)
         {
@@ -408,22 +409,11 @@ namespace AradGameSettings
     static HRESULT __fastcall PollSettingsKeyboard(void* keyboard, void*)
     {
         const HRESULT result = pollOriginal(keyboard);
-        if (FAILED(result) || !Field<BYTE>(keyboard, 4)) { repeat.Suspend(); pace.Reset(); return result; }
+        if (FAILED(result) || !Field<BYTE>(keyboard, 4)) { repeat.Suspend(); return result; }
         // Process the same DirectInput snapshot as the game's shortcut handlers.
         auto& keys = Field<BYTE[256]>(keyboard, 0x10d);
         auto& last = Field<BYTE[256]>(keyboard, 0x20d);
         const bool eligible = viewport && !ui.active && GetForegroundWindow() == viewport && GetFocus() == viewport;
-        const unsigned town = eligible ? HandleToULong(GetPropW(viewport, L"AradHomeward.TownPace")) : 0;
-        if (town == 25 || town == 50 || town == 75)
-        {
-            // Standard DirectInput cursor keys, shared by the keyboard and the default pad mapping.
-            constexpr unsigned arrows[] = {0xcb, 0xcd, 0xc8, 0xd0};
-            bool moving = false;
-            for (auto scan : arrows) moving |= (keys[scan] & 0x80) != 0;
-            if (!pace.Sample(town, moving, GetTickCount()))
-                for (auto scan : arrows) keys[scan] = 0;
-        }
-        else pace.Reset();
         const unsigned setting = viewport ? HandleToULong(GetPropW(viewport, L"AradHomeward.HoldRepeat")) : 0;
         const unsigned key = setting & 255, rate = setting >> 8;
         if ((rate == 4 || rate == 8 || rate == 12) && ((key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9')))
@@ -475,7 +465,6 @@ namespace AradGameSettings
         Move(Field<void*>(ui.size, 0xac), X(ui.size), Y(ui.size) + 2);
         Move(ui.padPane, x, y);
         Move(ui.actionPane, x, y);
-        Move(ui.townSpeed, x + 147, y + townRow);
         Move(ui.repeatSwitch, x + 147, y + repeatRow);
         Move(ui.repeatRate, x + 147, y + (ui.canToggleRepeat ? frequencyRow : repeatRow));
         Move(ui.repeatKey, x + 147, y + keyRow);
@@ -521,12 +510,11 @@ namespace AradGameSettings
         ui.enabled = NewButton(ui.padPane, text->on, x + 92, y + 30);
         ui.defaults = NewButton(ui.padPane, text->defaults, x + 152, y + 30);
         ui.backToActions = NewButton(ui.padPane, Actions().actions, x + 152, y + 363);
-        ui.townSpeed = NewButton(ui.actionPane, L"", x + 147, y + townRow);
         ui.repeatSwitch = NewButton(ui.actionPane, text->off, x + 147, y + repeatRow);
         ui.repeatRate = NewButton(ui.actionPane, L"", x + 147, y + frequencyRow);
         ui.repeatKey = NewButton(ui.actionPane, L"", x + 147, y + keyRow);
         ui.openPad = NewButton(ui.actionPane, text->pad, x + 147, y + padRow);
-        if (!ui.enabled || !ui.defaults || !ui.backToActions || !ui.townSpeed || !ui.repeatSwitch || !ui.repeatRate ||
+        if (!ui.enabled || !ui.defaults || !ui.backToActions || !ui.repeatSwitch || !ui.repeatRate ||
             !ui.repeatKey || !ui.openPad) return false;
         for (int i = 0; i < bindingCount; ++i)
         {
@@ -540,8 +528,6 @@ namespace AradGameSettings
     static void RefreshActions()
     {
         wchar_t value[16];
-        swprintf_s(value, L"%d%%", ui.values.townSpeed);
-        Caption(ui.townSpeed, value);
         if (ui.canToggleRepeat)
             Caption(ui.repeatSwitch, ui.values.repeatEnabled ? text->on : text->off,
                 ui.values.repeatEnabled ? selectedInk : normalInk);
@@ -650,7 +636,6 @@ namespace AradGameSettings
         }
         else
         {
-            Label(renderer, x + 9, y + townRow + 5, Actions().town);
             Label(renderer, x + 9, y + repeatRow + 5, Actions().repeat);
             if (ui.canToggleRepeat) Label(renderer, x + 9, y + frequencyRow + 5, Actions().frequency);
             Label(renderer, x + 9, y + keyRow + 5, Actions().key);
@@ -673,8 +658,7 @@ namespace AradGameSettings
             else if (Clicked(ui.padTab)) ShowPage(ui.extended ? Page::Actions : Page::Pad);
             else if (ui.page == Page::Actions)
             {
-                if (Clicked(ui.townSpeed)) { ui.values.townSpeed = Next(ui.values.townSpeed, townSpeeds); RefreshActions(); }
-                else if (ui.canToggleRepeat && Clicked(ui.repeatSwitch))
+                if (ui.canToggleRepeat && Clicked(ui.repeatSwitch))
                 {
                     ui.values.repeatEnabled = !ui.values.repeatEnabled;
                     SelectBinding(-1);
@@ -770,6 +754,33 @@ namespace AradGameSettings
     {
         const auto displacement = reinterpret_cast<INT_PTR>(target) - reinterpret_cast<INT_PTR>(site + 5);
         memcpy(site + 1, &displacement, sizeof(displacement));
+    }
+
+    static float __fastcall TownMovementMultiplier(void* multiplier, void*)
+    {
+        const float native = Address<ReadTownMultiplier>(0x4451a0)(multiplier);
+        if (!viewport || ui.active || GetForegroundWindow() != viewport || GetFocus() != viewport)
+            return native;
+        return ScaleTownSpeed(native, HandleToULong(GetPropW(viewport, townSpeedProperty)));
+    }
+
+    static bool InstallTownMovement()
+    {
+        // Only the local town actor's movement update uses these four calls.
+        // Scale the equipment-adjusted multiplier for both axes and diagonal motion.
+        BYTE* const calls[] = {Address<BYTE*>(0x4cc35c), Address<BYTE*>(0x4cc369),
+            Address<BYTE*>(0x4cc389), Address<BYTE*>(0x4cc396)};
+        const auto getter = Address<void*>(0x4451a0);
+        for (auto call : calls)
+            if (!IsCall(call, getter)) return false;
+        const size_t bytes = calls[ARRAYSIZE(calls) - 1] + 5 - calls[0];
+        DWORD protection, ignored;
+        if (!VirtualProtect(calls[0], bytes, PAGE_EXECUTE_READWRITE, &protection)) return false;
+        for (auto call : calls)
+            ReplaceCall(call, reinterpret_cast<void*>(&TownMovementMultiplier));
+        VirtualProtect(calls[0], bytes, protection, &ignored);
+        FlushInstructionCache(GetCurrentProcess(), calls[0], bytes);
+        return true;
     }
 
     static bool Install(BYTE* client, const wchar_t* locale)

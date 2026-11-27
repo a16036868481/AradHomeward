@@ -12,7 +12,7 @@ internal sealed class GamePreferencesBridge : ApplicationContext
 {
     private const string EndpointProperty = "AradHomeward.GamePreferences";
     private const string RepeatProperty = "AradHomeward.HoldRepeat";
-    private const string TownProperty = "AradHomeward.TownPace";
+    private const string TownProperty = "AradHomeward.TownSpeedPercent";
     private const int CopyDataMessage = 0x004a, Packet = 0x41524832, FirstBinding = 3, DefaultBinding = 0x100;
     private static readonly int ReadMessage = RegisterWindowMessage("AradHomeward.GamePreferences.v1");
     private readonly Process game;
@@ -83,9 +83,12 @@ internal sealed class GamePreferencesBridge : ApplicationContext
 
     private void PublishInput()
     {
-        bool dungeon = (current.RepeatEnabled || current.TownSpeed != 100) && InScene("dungeon");
+        bool dungeon = InScene("dungeon");
         SetInputValue(RepeatProperty, dungeon && current.RepeatEnabled ? (current.RepeatRate << 8) | (int)current.RepeatKey : 0);
-        SetInputValue(TownProperty, !dungeon && current.TownSpeed != 100 && InScene("town") ? current.TownSpeed : 0);
+        int percent = !dungeon && InScene("town") ? GamePlaySettings.LoadTownSpeed(root, current.LegacyTownSpeed) :
+            GamePlaySettings.FullTownSpeed;
+        // Reserve zero for an absent property so a setting of 0% remains distinct.
+        SetInputValue(TownProperty, percent < GamePlaySettings.FullTownSpeed ? percent + 1 : 0);
     }
 
     private bool InScene(string name)
@@ -111,7 +114,7 @@ internal sealed class GamePreferencesBridge : ApplicationContext
         if (field >= FirstBinding && field < FirstBinding + current.Bindings.Length)
             return (int)current.Bindings[field - FirstBinding] + 1;
         int travel = FirstBinding + current.Bindings.Length;
-        if (field == travel) return current.TownSpeed + 1;
+        if (field == travel) return current.LegacyTownSpeed + 1;
         if (field == travel + 1) return current.RepeatEnabled ? current.RepeatRate + 1 : 1;
         if (field == travel + 2) return (int)current.RepeatKey + 1;
         if (field == travel + 3) return current.RepeatEnabled ? 2 : 1;
@@ -142,11 +145,11 @@ internal sealed class GamePreferencesBridge : ApplicationContext
         int rate = extended ? values[travel + 1] : 0;
         int enabled = hasRepeatSwitch ? values[travel + 3] : (rate == 0 ? 0 : 1);
         if (enabled < 0 || enabled > 1) return false;
-        next.TownSpeed = extended ? values[travel] : current.TownSpeed;
+        next.LegacyTownSpeed = current.LegacyTownSpeed;
         next.RepeatRate = hasRepeatSwitch || rate != 0 ? rate : current.RepeatRate;
         next.RepeatEnabled = extended ? enabled == 1 : current.RepeatEnabled;
         next.RepeatKey = extended ? (Keys)values[travel + 2] : current.RepeatKey;
-        if (!GamePlaySettings.TownSpeeds.Contains(next.TownSpeed) || !GamePlaySettings.RepeatRates.Contains(next.RepeatRate) ||
+        if (!GamePlaySettings.RepeatRates.Contains(next.RepeatRate) ||
             !GamePlaySettings.CanRepeat(next.RepeatKey)) return false;
         for (int i = 0; i < next.Bindings.Length; i++)
         {
@@ -155,7 +158,7 @@ internal sealed class GamePreferencesBridge : ApplicationContext
             next.Bindings[i] = key;
         }
         if (current.DisplayMode == next.DisplayMode && current.WindowScale == next.WindowScale &&
-            current.TownSpeed == next.TownSpeed && current.RepeatEnabled == next.RepeatEnabled &&
+            current.RepeatEnabled == next.RepeatEnabled &&
             current.RepeatRate == next.RepeatRate && current.RepeatKey == next.RepeatKey &&
             current.GamepadEnabled == next.GamepadEnabled && current.Bindings.SequenceEqual(next.Bindings)) return true;
         try { next.Save(root); }

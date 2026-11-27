@@ -40,6 +40,7 @@ if($LASTEXITCODE-ne 0){throw 'Controller compilation failed.'}
 Copy-Item -LiteralPath (Join-Path $taskInstall 'AradHomeward.exe') -Destination (Join-Path $taskInstall 'StopAll.exe')
 $taskTrainerSources=Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'trainer\desktop') -File -Filter '*.cs' | ForEach-Object {$_.FullName}
 $taskTrainerSources+=Join-Path $PSScriptRoot 'setup\LanRoomText.cs'
+$taskTrainerSources+=Join-Path $PSScriptRoot 'setup\GamePlaySettings.cs'
 & $taskCompiler @taskCommon "/out:$taskInstall\AradTrainer.exe" @taskTrainerSources $taskProgramPaths
 if($LASTEXITCODE-ne 0){throw 'Trainer compilation failed.'}
 Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'trainer') -File -Filter '*.py' | Copy-Item -Destination (Join-Path $taskInstall 'trainer')
