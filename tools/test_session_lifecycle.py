@@ -26,10 +26,12 @@ class Writer:
     def __init__(self):
         self.closed = False
         self.fail_write = False
+        self.frames = []
 
     def write(self, data):
         if self.fail_write:
             raise ConnectionResetError('disconnected before write')
+        self.frames.append(data)
 
     async def drain(self):
         pass
@@ -42,6 +44,63 @@ class Writer:
 
 
 class ConnectionTests(unittest.IsolatedAsyncioTestCase):
+    async def relay_frames(self, session, direction, *frames):
+        reader = asyncio.StreamReader()
+        reader.feed_data(b''.join(frames))
+        reader.feed_eof()
+        with self.assertRaises(asyncio.IncompleteReadError):
+            if direction == 'server':
+                session.server_reader = reader
+                await session.from_server()
+            else:
+                session.reader = reader
+                await session.from_client()
+
+    async def test_dead_player_cannot_transfer_rooms_until_their_revival(self):
+        for upstream in (bridge.Bridge(), None):
+            with self.subTest(relay='local' if upstream else 'LAN guest'):
+                client, server = Writer(), Writer()
+                session = bridge.Session(upstream, None, client, 7010)
+                session.server_writer = server
+                session.observe_reply(4, struct.pack('<BIIH', 1, 7, 0, 42))
+                session.observe_scene(29, b'dungeon map')
+
+                death = bridge.command(43, struct.pack('<HH', 1186, 343), 0)
+                move = bridge.command(48, b'\x02\x01' + b'\0' * 78, 1)
+                actor = struct.pack('<H', 42)
+                coin = bridge.command(44, actor, 2)
+                await self.relay_frames(session, 'client', death, move, coin)
+                expected_coin = bridge.command(44, actor, 1 if upstream else 2)
+                self.assertEqual(server.frames, [death, expected_coin])
+                self.assertEqual(struct.unpack('<BHI', client.frames[-1][:7]), (1, 48, 9))
+                self.assertEqual(client.frames[-1][7:].translate(bridge.DEC), b'\0\x13')
+
+                own_death = bridge.notification(32, struct.pack('<HB', 42, 0))
+                teammate_lives = bridge.notification(32, struct.pack('<HB', 43, 1))
+                await self.relay_frames(session, 'server', own_death, teammate_lives, bridge.notification(30, b'\0' * 4))
+                await self.relay_frames(session, 'client', move)
+                self.assertEqual(len(server.frames), 2)
+
+                own_revival = bridge.notification(32, struct.pack('<HB', 42, 1))
+                await self.relay_frames(session, 'server', own_revival)
+                await self.relay_frames(session, 'client', move)
+                self.assertEqual(len(server.frames), 3)
+                self.assertEqual(struct.unpack_from('<H', server.frames[-1], 1)[0], 48)
+                self.assertIn(own_revival, client.frames)
+
+    async def test_room_commit_releases_an_unconfirmed_death_report(self):
+        session = bridge.Session(None, None, Writer(), 7010)
+        session.server_writer = Writer()
+        session.observe_reply(4, struct.pack('<BIIH', 1, 7, 0, 42))
+        session.observe_scene(29, b'dungeon map')
+        death = bridge.command(43, struct.pack('<HH', 1186, 343), 0)
+        move = bridge.command(48, b'\x02\x01' + b'\0' * 78, 1)
+        await self.relay_frames(session, 'client', death, move)
+        self.assertEqual(session.server_writer.frames, [death])
+        await self.relay_frames(session, 'server', bridge.notification(30, b'\0' * 4))
+        await self.relay_frames(session, 'client', move)
+        self.assertEqual(session.server_writer.frames, [death, move])
+
     async def test_selection_reply_allows_room_edit_until_dungeon_load(self):
         session = bridge.Session(bridge.Bridge(), None, Writer(), 7010)
         session.observe_reply(4, struct.pack('<BIIH', 1, 7, 0, 42))

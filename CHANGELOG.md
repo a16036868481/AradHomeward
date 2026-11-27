@@ -1,5 +1,10 @@
 # Changes
 
+## v2.6.0-preview.44 — 2026-11-28
+
+- Fixed room changes overlapping the revival countdown. Single-player and LAN sessions reject delayed room requests after death and allow room changes again when the player's revival is confirmed.
+- 修复角色倒地后，迟到的换房请求与复活倒计时冲突的问题。单人和局域网模式在确认本人复活后恢复换房。
+
 ## v2.6.0-preview.43 — 2026-11-28
 
 - Start a bundled x64 login service when Windows lacks the API required by the standard CET-compatible apphost. Startup diagnostics report which service runs and its bitness.

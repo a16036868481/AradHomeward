@@ -20,13 +20,19 @@ DEC = bytes((((v<<6)|(v>>2))&255)^0xb5 for v in range(256))
 LOG = logging.getLogger('dnf60.bridge')
 REPLY_TIMEOUT_SECONDS = 8
 DISCONNECTED = (asyncio.IncompleteReadError, ConnectionError, asyncio.CancelledError)
+FINISH_LOADING_NOTICE = 30
+CHANGE_CHARAC_LIVE = 32
 FINISH_QUEST = 36
+DIE_CHARACTER = 43
+MOVE_MAP = 48
 PET_EVOLUTION_REWARD = 10
 CHARACTER_INFO = 2
 CREATURE_EXPERIENCE = 102
 CREATURE_ITEM_LIST = 105
 # Native notifications for dungeon info and map start, including tower and altar.
 DUNGEON_LOAD_NOTICES = {28, 29, 154, 155, 225, 226}
+# The native server uses this failure reply when a room transfer is unavailable.
+MOVE_MAP_DENIED = struct.pack('<BHI', 1, MOVE_MAP, 9) + b'\0\x13'.translate(ENC)
 
 def aes(data, encrypt=False):
     c = Cipher(algorithms.AES(KEY),modes.ECB())
@@ -133,8 +139,10 @@ class Session:
         self.bridge,self.reader,self.writer,self.port=bridge,reader,writer,port
         self.server_reader=self.server_writer=None
         self.lock=asyncio.Lock(); self.operation_lock=asyncio.Lock()
+        self.client_write_lock = asyncio.Lock()
         self.seq=0; self.account_id=0; self.character_id=0; self.pending_character=0; self.actor_id=0
         self.pending={}; self.closed=False; self.in_dungeon=False
+        self.death_state = None
         self.pet_refresh = b''
         self.scene_changed = scene_changed or (InputScene(GAME.parent).set if bridge else None)
 
@@ -204,12 +212,20 @@ class Session:
             if self.scene_changed:
                 self.scene_changed('')
 
+    async def send_to_client(self, packet):
+        async with self.client_write_lock:
+            self.writer.write(packet)
+            await self.writer.drain()
+
     async def from_client(self):
         while True:
             h=await self.reader.readexactly(13); length=u32(h,3)
             if not 13<=length<=4*1024*1024: raise ValueError('command length')
             encrypted=await self.reader.readexactly(length-13)
-            id=struct.unpack_from('<H',h,1)[0]
+            frame_type, id = struct.unpack_from('<BH', h)
+            if frame_type == 1 and id == MOVE_MAP and self.death_state is not None:
+                await self.send_to_client(MOVE_MAP_DENIED)
+                continue
             async with self.lock:
                 sequence = self.seq if self.bridge else struct.unpack_from('<H', h, 11)[0]
                 if self.bridge:
@@ -219,6 +235,11 @@ class Session:
                 if id in (1,4,7):
                     body=aes(encrypted) if encrypted else b''
                     self.observe_command(id,body)
+                elif (frame_type == 1 and id == DIE_CHARACTER and self.in_dungeon
+                      and self.death_state is None and len(encrypted) == 16
+                      and not any(aes(encrypted)[4:])):
+                    # A door request can already be queued before the death notice returns.
+                    self.death_state = 'reported'
                 elif id == FINISH_QUEST and encrypted:
                     body = aes(encrypted)
                     if len(body) >= 8:
@@ -243,6 +264,7 @@ class Session:
             if body[0]<len(rows): self.pending_character=rows[body[0]][0]
         elif id==7:
             self.character_id=0; self.in_dungeon=False; self.pet_refresh=b''
+            self.death_state = None
             self.publish_scene()
 
     async def from_server(self):
@@ -261,17 +283,17 @@ class Session:
                     if evolved_reply is not None:
                         encrypted = evolved_reply.translate(ENC)
                         h = struct.pack('<BHI', type, id, 7 + len(encrypted))
-            elif type==0 and (id==3 or id in DUNGEON_LOAD_NOTICES):
+            elif type==0 and (id in (3, FINISH_LOADING_NOTICE, CHANGE_CHARAC_LIVE) or id in DUNGEON_LOAD_NOTICES):
                 self.observe_scene(id, encrypted.translate(DEC))
-            self.writer.write(h+encrypted)
+            packet = h + encrypted
             if type == 0 and id == CHARACTER_INFO and self.pet_refresh:
                 details = encrypted[:5].translate(DEC)
                 if details == struct.pack('<BHH', 1, 1, self.actor_id):
                     # The native details packet equips the new item and binds
                     # its creature UID. Refresh that instance's saved state.
-                    self.writer.write(self.pet_refresh)
+                    packet += self.pet_refresh
                     self.pet_refresh = b''
-            await self.writer.drain()
+            await self.send_to_client(packet)
 
     def pet_evolution_reply(self, body):
         if not self.character_id or len(body) < 10 or body[0] != 1:
@@ -306,12 +328,14 @@ class Session:
             self.character_id = u32(body, 1)
             self.actor_id = struct.unpack_from('<H', body, 9)[0]
             self.in_dungeon = False
+            self.death_state = None
             self.pet_refresh = b''
             LOG.info('local online character=%s account=%s', self.character_id, self.account_id)
             self.publish_scene()
         elif opcode == 38 and body[:2] == b'\0\0':
             # The native server acknowledges area changes only after leaving a dungeon.
             self.in_dungeon = False
+            self.death_state = None
             self.publish_scene()
 
     def observe_scene(self, opcode, body):
@@ -320,11 +344,19 @@ class Session:
         if opcode in DUNGEON_LOAD_NOTICES:
             self.in_dungeon = True
             self.publish_scene()
+        elif opcode == CHANGE_CHARAC_LIVE:
+            if (self.in_dungeon and len(body) >= 3 and body[2] in (0, 1)
+                    and struct.unpack_from('<H', body)[0] == self.actor_id):
+                self.death_state = None if body[2] else 'confirmed'
+        elif opcode == FINISH_LOADING_NOTICE and self.death_state == 'reported':
+            # Death reports during loading are rejected. Only a life notice confirms a death.
+            self.death_state = None
         elif (opcode == 3 and len(body) >= 4 and body[0] == 1
               and struct.unpack_from('<H', body, 1)[0] == self.actor_id
               and body[3] in (0, 5)):
             # Town includes the player's private room and the siege-ghost state.
             self.in_dungeon = False
+            self.death_state = None
             self.publish_scene()
 
     def complete_helper_reply(self, opcode, body):

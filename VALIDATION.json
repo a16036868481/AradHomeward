@@ -1,8 +1,8 @@
 {
-  "version": "2.6.0-preview.43",
+  "version": "2.6.0-preview.44",
   "checkedOn": "2026-11-28",
-  "automatedTestsCheckedIn": "2.6.0-preview.39",
-  "automatedTestsPassed": 28,
+  "automatedTestsCheckedIn": "2.6.0-preview.44",
+  "automatedTestsPassed": 36,
   "startupDiagnosticChecksPassed": 8,
   "languagePackHashesVerified": [
     "zh-Hans",
@@ -171,6 +171,14 @@
     "saveBackupPassed": true,
     "affectedWindows10BuildTested": false,
     "windows7Tested": false
+  },
+  "dungeonRevival": {
+    "checkedIn": "2.6.0-preview.44",
+    "oldBuildAcceptedRoomTransferAfterDeathInTestDungeon": true,
+    "localAndLanRelayRegressionsPassed": true,
+    "roomTransferResumesAfterOwnRevival": true,
+    "roomCommitReleasesUnconfirmedDeathReport": true,
+    "castellanSameRoomFreezeReproduced": false
   },
   "unlimitedOwl": {
     "checkedIn": "2.6.0-preview.42",
