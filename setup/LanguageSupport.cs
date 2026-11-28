@@ -147,7 +147,7 @@ internal static class LanguageSupport
         string baseHash=Convert.ToString(data["baseSha256"]);
         if(!File.Exists(baseFile)||Hash(baseFile)!=baseHash)throw new InvalidDataException("UI language base failed verification.");
         var variants=(Dictionary<string,object>)data["languages"];
-        var desired=selected=="zh-Hans"?null:(Dictionary<string,object>)variants[selected];
+        var desired=selected=="zh-Hans"&&!variants.ContainsKey(selected)?null:(Dictionary<string,object>)variants[selected];
         string expected=desired==null?baseHash:Convert.ToString(desired["clientSha256"]);
         string current=File.Exists(target)?Hash(target):"";
         if(current==expected)return null;

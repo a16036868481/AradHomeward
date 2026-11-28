@@ -11,6 +11,8 @@
 #include "OfflineNews.h"
 #include "WindowInput.h"
 #include "vendor/minhook-1.3.4/include/MinHook.h"
+#include "HudMenu.h"
+#include "DungeonMinimap.h"
 #include "TownOwl.h"
 
 static HMODULE selfModule;
@@ -37,7 +39,12 @@ static BOOL WINAPI BootVersion(LPOSVERSIONINFOA info)
     // This exact CRT call occurs after the loader releases its lock and before
     // the game's C++ initializers cache UI strings. Initialization is never
     // awaited from DllMain or an arbitrary version-query caller.
-    if(_ReturnAddress()==startupReturn){startupGateObserved=true;EnsureInitialized();}
+    if (_ReturnAddress() == startupReturn)
+    {
+        AradWindowInput::EnableDpiAwareness();
+        startupGateObserved = true;
+        EnsureInitialized();
+    }
     return originalBootVersion(info);
 }
 static bool InstallStartupGate(BYTE* image)
@@ -215,6 +222,55 @@ static bool InstallSeriaIntroductionHook(BYTE* image)
     return true;
 }
 
+using FinishTutorialGuide = void (__thiscall*)(BYTE*, int, bool);
+static FinishTutorialGuide originalFinishTutorialGuide;
+static BYTE* tutorialClient;
+
+static void __fastcall FinishSeriaQuestGuide(BYTE* tutorial, void*, int module, bool reward)
+{
+    constexpr int firstQuestGuide = 12;
+    constexpr int noActiveGuide = 66;
+    const int& activeGuide = *reinterpret_cast<const int*>(tutorial + 0x94);
+    const bool skippingFirstQuest = module == firstQuestGuide && !reward && activeGuide == module;
+    originalFinishTutorialGuide(tutorial, module, reward);
+    if (!skippingFirstQuest || activeGuide != noActiveGuide) return;
+
+    auto scene = *reinterpret_cast<BYTE* const*>(tutorialClient + 0xDB0830);
+    auto player = *reinterpret_cast<BYTE* const*>(tutorialClient + 0xE07E18);
+    using SceneNumber = int (__thiscall*)(void*);
+    if (!scene || !player || *reinterpret_cast<BYTE* const*>(player) != tutorialClient + 0x9F4774 ||
+        reinterpret_cast<SceneNumber>(tutorialClient + 0x8A58A0)(scene + 0x18) != 1) return;
+
+    constexpr DWORD alphaMask = 0xFF000000;
+    const DWORD colorOverride = *reinterpret_cast<const DWORD*>(player + 0x1A0);
+    const DWORD overrideMask = *reinterpret_cast<const DWORD*>(player + 0x1A4);
+    if (!(overrideMask & alphaMask) || (colorOverride & alphaMask)) return;
+
+    // Finish the town avatar's fade before clearing its transparent override.
+    // The next animation update can then keep the normal visibility and colors.
+    player[0x218] = 5;
+    using ClearColorOverride = void (__thiscall*)(BYTE*, DWORD);
+    reinterpret_cast<ClearColorOverride>(tutorialClient + 0xB64F0)(player, alphaMask);
+}
+
+static bool InstallSeriaQuestVisibilityHook(BYTE* image)
+{
+    auto finish = image + 0x70E510;
+    const BYTE finishSignature[] = {0x55,0x8B,0xEC,0x56,0x8B,0xF1,0x8B,0x86,0x94,0,0,0};
+    const BYTE fadeSignature[] = {0x8A,0x86,0x18,0x02,0,0,0x3C,0x05,0x75,0x36};
+    const BYTE colorSignature[] = {0x55,0x8B,0xEC,0x56,0x8B,0xF1,0x8B,0x86,0xA4,0x01,0,0};
+    if (memcmp(finish, finishSignature, sizeof(finishSignature)) ||
+        memcmp(image + 0xC79D1, fadeSignature, sizeof(fadeSignature)) ||
+        memcmp(image + 0xB64F0, colorSignature, sizeof(colorSignature))) return false;
+
+    tutorialClient = image;
+    if (MH_CreateHook(finish, reinterpret_cast<void*>(&FinishSeriaQuestGuide),
+        reinterpret_cast<void**>(&originalFinishTutorialGuide)) != MH_OK) return false;
+    if (MH_EnableHook(finish) == MH_OK) return true;
+    MH_RemoveHook(finish);
+    return false;
+}
+
 static void LocalizeSkillPlanButtons()
 {
     const wchar_t* first;
@@ -278,7 +334,10 @@ static DWORD WINAPI Initialize(void*)
         else if (!AradGameSettings::InstallTownMovement()) Log("town-movement-unavailable");
     }
     if (!InstallSeriaIntroductionHook(image)) Log("seria-introduction-hook-unavailable");
+    if (!AradDungeonMinimap::Install(image)) Log("dungeon-minimap-unavailable");
     if (MH_Initialize() != MH_OK) { Log("hook-initialization-failed"); return 0; }
+    if (!AradHudMenu::Install(image)) Log("hud-menu-hook-unavailable");
+    if (!InstallSeriaQuestVisibilityHook(image)) Log("seria-quest-visibility-hook-unavailable");
     if (!AradTownOwl::Install(image)) Log("town-owl-unavailable");
     localNews = OfflineNewsUrl(installation, locale);
     // Use the local welcome page with the original Chinese text and font path.

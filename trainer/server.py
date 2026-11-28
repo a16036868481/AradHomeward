@@ -1,7 +1,7 @@
 # Copyright (c) 2026 eirros. All rights reserved.
 # Custom contributions; see the project LICENSE.txt and retained third-party notices.
 """Local ACT12 manager: real resource icons, batch items and online native sync."""
-import asyncio, base64, concurrent.futures, hashlib, json, logging, mimetypes, os, secrets, struct, threading, time, uuid
+import asyncio, base64, concurrent.futures, hashlib, json, logging, mimetypes, os, secrets, sqlite3, struct, threading, time, uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -13,6 +13,7 @@ from lan_room import RoomHost
 from display_locale import names as locale_names, matches as locale_matches, public_page as locale_public_page
 from runtime_compat import to_thread
 from login_service import management_request
+from item_grants import ELIXIR_ITEM, load_grant_rules, restore_elixir_attachments
 
 HERE=Path(__file__).resolve().parent
 PORT=8787
@@ -29,6 +30,12 @@ for item in CATALOG:
     if text.get('name'):item['name']=text['name']
     if 'description' in text:item['description']=text['description']
     item['search']+=' '+item['name'].casefold()
+REPLACEMENTS, DISABLED_GRANTS, GRANT_EXPIRY = load_grant_rules()
+REPLACEMENTS = {item: target for item, target in REPLACEMENTS.items() if item in ITEMS and target in ITEMS}
+for item, target in REPLACEMENTS.items():
+    ITEMS[target]['search'] += ' ' + ITEMS[item]['search']
+GRANT_CATALOG = [item for item in CATALOG if item.get('sendable') and
+                 item['id'] not in REPLACEMENTS and item['id'] not in DISABLED_GRANTS]
 CAREERS=json.loads((GAME/'ACT12_Server'/'gm_careers.json').read_text(encoding='utf-8'))
 GROWTH=json.loads((HERE/'growth.json').read_text(encoding='utf-8'))
 NPK=Npk(GAME/'ACT12'/'ImagePacks2')
@@ -275,14 +282,29 @@ def item_options(body):
     value=integer(body.get('enhanceValue',0),'红字属性值',0,65535)
     return level,type,value if type else 0
 
+def grant_catalog():
+    now = time.time()
+    return (item for item in GRANT_CATALOG if GRANT_EXPIRY.get(item['id'], float('inf')) > now)
+
+
+def grant_item(item_id):
+    # Explicit IDs outside the elixir family may be used by existing recipes or tools.
+    if REPLACEMENTS.get(item_id) == ELIXIR_ITEM:
+        item_id = ELIXIR_ITEM
+    item = ITEMS.get(item_id)
+    if (not item or not item.get('sendable') or item_id in DISABLED_GRANTS
+            or GRANT_EXPIRY.get(item_id, float('inf')) <= time.time()):
+        raise ValueError('该物品不能发放')
+    return item
+
+
 async def give_items(body):
     id=integer(body.get('id'),'角色编号',1,2147483647);r=role(id);s=require_session(id)
     requested=body.get('items')
     if not isinstance(requested,list) or not 1<=len(requested)<=64:raise ValueError('每批请选择 1～64 种物品')
     requests=[]
     for entry in requested:
-        item=ITEMS.get(integer(entry.get('id'),'物品编号',3,2147483647))
-        if not item or not item.get('sendable'):raise ValueError('该物品不能发放')
+        item=grant_item(integer(entry.get('id'),'物品编号',3,2147483647))
         count=integer(entry.get('count',1),'数量',1,1000000)
         level,type,value=item_options(entry)
         if item.get('stackable'):
@@ -421,7 +443,7 @@ def admin_read(path,locale='zh-Hans'):
     if route.path=='/api/items/detail':return item_detail(int(q['id']))
     if route.path=='/api/items/page':
         words=q.get('q','').casefold().split();category=q.get('category','all');translations=locale_names(locale)
-        rows=[item for item in CATALOG if (category=='all' or item['category']==category) and locale_matches(item,words,translations) and (q.get('all')=='true' or item.get('sendable'))]
+        rows=[item for item in grant_catalog() if (category=='all' or item['category']==category) and locale_matches(item,words,translations)]
         sort=q.get('sort','id');sort=sort if sort in ('id','name','rarity','level') else 'id'
         rows.sort(key=lambda item:(item.get(sort,0),item['id']))
         page=max(0,int(q.get('page','0')));size=max(1,min(100,int(q.get('pageSize','20'))))
@@ -486,7 +508,7 @@ class Handler(BaseHTTPRequestHandler):
             if p=='/api/items':
                 text=q.get('q','').casefold().strip();category=q.get('category','');rarity=q.get('rarity','');subtype=q.get('subtype','')
                 translations=locale_names(q.get('lang','zh-Hans'))
-                filtered=[i for i in CATALOG if locale_matches(i,text.split(),translations) and (not category or i['category']==category) and (not rarity or i['rarity']==int(rarity)) and (not subtype or i.get('subtype')==subtype)]
+                filtered=[i for i in grant_catalog() if locale_matches(i,text.split(),translations) and (not category or i['category']==category) and (not rarity or i['rarity']==int(rarity)) and (not subtype or i.get('subtype')==subtype)]
                 page=max(1,int(q.get('page','1')));size=48
                 return self.send(200,{'total':len(filtered),'page':page,'pages':max(1,(len(filtered)+size-1)//size),'items':[compact_item(i) for i in filtered[(page-1)*size:page*size]]})
             if p=='/api/item':
@@ -512,7 +534,14 @@ class Handler(BaseHTTPRequestHandler):
             length=int(self.headers.get('Content-Length','0'))
             if not 0<length<=1048576:raise ValueError('请求长度无效')
             body=json.loads(self.rfile.read(length))
-            if self.path=='/api/admin':return self.send(200,ADMIN.post(body.get('path'),body.get('body')))
+            if self.path=='/api/admin':
+                path, payload = body.get('path'), body.get('body')
+                if path in ('/api/mail/send', '/api/mail/preview-all', '/api/schedules/mail') and isinstance(payload, dict):
+                    field = 'mailItem' if path == '/api/schedules/mail' else 'item'
+                    value = str(payload.get(field, ''))
+                    if value.isdecimal() and int(value) >= 3:
+                        payload[field] = grant_item(int(value))['id']
+                return self.send(200,ADMIN.post(path,payload))
             routes={'/api/profile':profile,'/api/give':give_items,'/api/inventory':edit_inventory,
                     '/api/lan/status':room_status,'/api/lan/open':ROOM.open,'/api/lan/close':ROOM.close}
             if self.path=='/api/shutdown':
@@ -538,6 +567,12 @@ def main():
     PROFILES.initialize()
     log_file = logging.FileHandler(ROOT/'logs'/'trainer.log', encoding='utf-8')
     logging.basicConfig(handlers=[log_file], level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    try:
+        repaired = restore_elixir_attachments(PROFILES)
+        if repaired:
+            LOG.info('Repaired %s unclaimed Ancient Spirit elixir attachments', repaired)
+    except (OSError, RuntimeError, sqlite3.Error):
+        LOG.exception('Unable to repair old Ancient Spirit elixir attachments')
     server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
     thread=threading.Thread(target=lambda:asyncio.run(run_bridge()),daemon=True);thread.start()
     print('AradReturn local helper http://127.0.0.1:'+str(PORT),flush=True)

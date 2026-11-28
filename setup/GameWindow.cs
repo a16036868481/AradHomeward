@@ -46,6 +46,10 @@ internal static class GameWindow
 
     [DllImport("user32.dll")]
     private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
+    [DllImport("user32.dll")] private static extern IntPtr BeginDeferWindowPos(int count);
+    [DllImport("user32.dll")] private static extern IntPtr DeferWindowPos(IntPtr batch, IntPtr window, IntPtr after,
+        int x, int y, int width, int height, uint flags);
+    [DllImport("user32.dll")] private static extern bool EndDeferWindowPos(IntPtr batch);
 
     internal static IntPtr TrySetDpiContext(IntPtr context)
     {
@@ -82,7 +86,7 @@ internal static class GameWindow
         IntPtr observed = IntPtr.Zero;
         var age = new Stopwatch();
         Size lastReported = Size.Empty, lastReportedChat = Size.Empty;
-        bool missingReported = false, managingLayout = false;
+        bool missingReported = false;
         while (!game.WaitForExit(300))
         {
             game.Refresh();
@@ -93,14 +97,13 @@ internal static class GameWindow
                 age.Restart();
                 lastReported = Size.Empty;
                 lastReportedChat = Size.Empty;
+                missingReported = false;
             }
             if (window == IntPtr.Zero || IsIconic(window) || age.ElapsedMilliseconds < 850)
                 continue;
             var settings = getSettings();
             bool fullscreen = settings.DisplayMode == GameDisplayMode.FullScreen;
             int percent = settings.DisplayMode == GameDisplayMode.Windowed ? settings.WindowScale : 0;
-            if (percent != 100 || fullscreen) managingLayout = true;
-            if (!managingLayout) continue;
             if (GetProp(window, InputReady) == IntPtr.Zero)
             {
                 // Let the client's dispatcher attach on its own UI thread,
@@ -116,7 +119,6 @@ internal static class GameWindow
 
             Size applied, appliedChat;
             if (!TryApply(window, (uint)game.Id, percent, fullscreen, out applied, out appliedChat)) continue;
-            managingLayout = percent != 100 || fullscreen;
             if (applied != lastReported || appliedChat != lastReportedChat)
             {
                 log(String.Format("DISPLAY pid={0} window={1}x{2} requested={3} chat={4}", game.Id,
@@ -166,7 +168,7 @@ internal static class GameWindow
             if (!SetScale(window, ScaleSize, viewportSize) ||
                 !SetScale(window, ScaleWidth, !fullscreen && desired.Width > OriginalWidth ? desired.Width : 0)) return false;
 
-            const uint flags = DoNotActivate | DoNotChangeZOrder | Async;
+            const uint flags = DoNotActivate | DoNotChangeZOrder;
             bool resizeGame = client.Width != desired.Width || client.Height != desired.Height;
             int chatWidth = chatFrame.Width, chatHeight = chatFrame.Height;
             bool resizeChat = false;
@@ -195,15 +197,30 @@ internal static class GameWindow
                 y = Clamp(y + (frame.Height - height) / 2,
                     area.Top, area.Bottom - (visibleChat ? Math.Max(height, chatHeight) : height));
             }
-            if (resizeGame || x != frame.Left || y != frame.Top)
-                SetWindowPos(window, IntPtr.Zero, x, y, width, height, flags);
-
             // A hidden chat can be restored to the native size before it is
             // shown again. Leave its visibility under the client's control.
-            bool moveChat = visibleChat && (chatFrame.Left != x + width || chatFrame.Top != y);
-            if (resizeChat || moveChat)
-                SetWindowPos(chat, IntPtr.Zero, x + width, y, chatWidth, chatHeight, flags | (resizeChat ? 0 : DoNotResize));
-            if (resizeGame || resizeChat || moveChat) return false;
+            bool moveGame = x != frame.Left || y != frame.Top;
+            bool alignChat = fullscreen || percent != 100 || resizeGame || resizeChat;
+            bool moveChat = visibleChat && alignChat && (chatFrame.Left != x + width || chatFrame.Top != y);
+            bool updateGame = resizeGame || moveGame;
+            bool updateChat = resizeChat || moveChat;
+            uint gameFlags = flags | (resizeGame ? 0 : DoNotResize);
+            uint chatFlags = flags | (resizeChat ? 0 : DoNotResize);
+            if (updateGame && updateChat)
+            {
+                // Commit both panes together before either renderer sees the new layout.
+                IntPtr batch = BeginDeferWindowPos(2);
+                if (batch != IntPtr.Zero)
+                    batch = DeferWindowPos(batch, window, IntPtr.Zero, x, y, width, height, gameFlags);
+                if (batch != IntPtr.Zero)
+                    batch = DeferWindowPos(batch, chat, IntPtr.Zero, x + width, y, chatWidth, chatHeight, chatFlags);
+                if (batch != IntPtr.Zero && EndDeferWindowPos(batch)) return false;
+            }
+            if (updateGame)
+                SetWindowPos(window, IntPtr.Zero, x, y, width, height, gameFlags | Async);
+            if (updateChat)
+                SetWindowPos(chat, IntPtr.Zero, x + width, y, chatWidth, chatHeight, chatFlags | Async);
+            if (updateGame || updateChat) return false;
 
             applied = desired;
             if (visibleChat) appliedChat = new Size(chatClient.Width, chatClient.Height);

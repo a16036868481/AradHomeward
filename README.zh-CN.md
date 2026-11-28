@@ -6,7 +6,7 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 
 **[下载 Windows 版](https://github.com/a16036868481/AradHomeward/releases)** · **[中文图文说明](docs/USAGE.zh-CN.md)** · **[English guide](docs/USAGE.en.md)**
 
-`AradHomeward-v2.6.0-preview.44-win-x64.zip` 是 Windows 10 和 Windows 11 完整包，包含游戏、本机服务、桌面修改器和局域网房间。同一发布页提供单独的 Windows 7 SP1 64 位兼容测试包。
+`AradHomeward-v2.6.0-preview.45-win-x64.zip` 是 Windows 10 和 Windows 11 完整包，包含游戏、本机服务、桌面修改器和局域网房间。同一发布页提供单独的 Windows 7 SP1 64 位兼容测试包。
 
 解压到新文件夹即可试用，原安装目录里的存档可继续保留。双击解压目录最外层的 `AradHomeward.exe` 启动。
 
@@ -36,7 +36,7 @@ Windows ACT12 / 60 版本本地游戏整合包，包含只填名称的账号选�
 
 ## 当前版本说明
 
-**v2.6.0-preview.44** 修复单人和局域网模式中死亡倒计时与迟到的换房请求冲突的问题。赛格哈特在同一房间内复活后卡住的情况仍待复现。
+**v2.6.0-preview.45** 改善游戏画面和聊天框的缩放清晰度，修复副本快捷栏、小地图重叠和跳过首次城镇任务引导后角色透明的问题。修改器保留可正常发放和使用的远古精灵的秘药（7440），城镇假人和材料摊位设置保存后生效。
 
 系统缺少 `QueueUserAPC2` 时，启动器自动使用随包的 64 位兼容登录服务。Windows 7 SP1 兼容测试包使用 64 位 .NET 6 登录服务。两条路径均在 Windows 11 模拟缺少接口时通过测试，Win7 和受影响的 Win10 版本仍待实机验收。 [验证记录](VALIDATION.json)
 

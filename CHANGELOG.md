@@ -1,5 +1,14 @@
 # Changes
 
+## v2.6.0-preview.45 — 2026-11-29
+
+- Scale the game and chat panes together using point sampling and DPI-aware output. Correct the bottom menu, Lorien hotbar backgrounds and overlapping dungeon minimaps.
+- Restore the local character's normal visibility when skipping the first town quest guide.
+- Consolidate duplicate trainer grants, use Ancient Spirit elixir 7440 and repair unclaimed trainer mail with the expired elixir. Apply the configured town and entrance populations and regional material stall limit.
+- 游戏画面和聊天框同步缩放，采用像素点采样并适配 DPI。修复底栏菜单、洛兰快捷栏黑底及副本小地图重叠。
+- 跳过首次城镇任务引导时恢复本地角色的正常显示。
+- 合并修改器中的重复发放项，使用远古精灵的秘药 7440，并修复修改器已发出但尚未领取的旧版秘药邮件。城镇、入口假人数量和地区材料摊位上限按配置生效。
+
 ## v2.6.0-preview.44 — 2026-11-28
 
 - Fixed room changes overlapping the revival countdown. Single-player and LAN sessions reject delayed room requests after death and allow room changes again when the player's revival is confirmed.

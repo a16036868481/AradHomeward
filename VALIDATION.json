@@ -1,8 +1,8 @@
 {
-  "version": "2.6.0-preview.44",
-  "checkedOn": "2026-11-28",
-  "automatedTestsCheckedIn": "2.6.0-preview.44",
-  "automatedTestsPassed": 36,
+  "version": "2.6.0-preview.45",
+  "checkedOn": "2026-11-29, Windows 11 build 26300",
+  "automatedTestsCheckedIn": "2.6.0-preview.45",
+  "automatedTestsPassed": 38,
   "startupDiagnosticChecksPassed": 8,
   "languagePackHashesVerified": [
     "zh-Hans",
@@ -189,5 +189,101 @@
     "owlCountPreservedInTestFixture": true,
     "originalFiveMinuteCooldownFeedbackObserved": true,
     "gameplayInputNativeTestsPassed": true
+  },
+  "releaseRegression": {
+    "automatedTestsPassedPerBundledRuntime": {
+      "standard": 38,
+      "win7Test": 38
+    },
+    "firstRunAndStartup": {
+      "standard": {
+        "variant": "standard",
+        "windowsBuild": 26300,
+        "freshIdentity": true,
+        "startupChecks": 8,
+        "diagnosticBitness": 64,
+        "compatibilityLoginBitness": 64,
+        "compatibilityBackend": "login_service_x64_compat",
+        "loginPort": 19099,
+        "managementPort": 18080,
+        "nativeServerReady": true,
+        "backupCreated": true
+      },
+      "win7": {
+        "variant": "win7",
+        "windowsBuild": 26300,
+        "freshIdentity": true,
+        "startupChecks": 8,
+        "diagnosticBitness": 64,
+        "compatibilityLoginBitness": 64,
+        "compatibilityBackend": "login_service_x64_compat",
+        "loginPort": 19099,
+        "managementPort": 18080,
+        "nativeServerReady": true,
+        "backupCreated": true
+      }
+    },
+    "freshStandardPackage": {
+      "createdLocalAccountAndCharacter": true,
+      "enteredLorienTutorial": true,
+      "hotbarBackgroundVisibleInLorien": true,
+      "dungeonMinimapSwitchesBetweenCircularAndRectangular": true,
+      "resolutionChangesChecked": 17,
+      "chatFollowedGameOnEveryResize": true
+    },
+    "displayFeatureTestsBeforePackaging": {
+      "maximumOffscreenWidth": 2880,
+      "maximumOffscreenHeight": 2160,
+      "pointSampledSurfaces": 30,
+      "testedGameSettingClicksAtNativeFractionalDoubleAndFullscreenSizes": true
+    },
+    "tutorialVisibilityFeatureTest": {
+      "forcedStaleAlphaDuringGuideSkip": true,
+      "avatarVisibilityRestored": true,
+      "duplicateFirstQuestRewardRejected": true
+    },
+    "itemGrantFeatureTests": {
+      "keptElixirId": 7440,
+      "verifiedOnlineManualAndOfflineDelivery": true,
+      "legacyAttachmentClaimAndDuplicatePrevention": true,
+      "nativeConsumeEffectSeconds": 7200,
+      "representativeIdsDelivered": 44
+    },
+    "populationFeatureTests": {
+      "testedServerSha256": "ab20627448ad64e5e6858c232caf09923d012129af02308ea7dd48c06c85b200",
+      "areasPerChannel": 33,
+      "channels": 2,
+      "populationChanges": [
+        [
+          7,
+          10
+        ],
+        [
+          13,
+          17
+        ],
+        [
+          25,
+          25
+        ],
+        [
+          7,
+          10
+        ]
+      ],
+      "lorienMaterialStallsAtLimitOne": 1,
+      "globalMarketMaterials": 194
+    },
+    "act12ShopFeatureTest": {
+      "bundlePagesCheckedInEachLanguage": 27,
+      "languages": [
+        "zh-Hans",
+        "en-US"
+      ],
+      "rareCostumeClassesChecked": 7,
+      "crashReproducedInAct12": false,
+      "reportedAct1GamePackageAvailable": false
+    },
+    "targetWindows7MachineTested": false
   }
 }
