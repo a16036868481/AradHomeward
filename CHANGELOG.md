@@ -1,5 +1,12 @@
 # Changes
 
+## v2.6.0-preview.46 — 2026-11-29
+
+- GM forced sign-out removes the selected town companion or stall owner. A signed-out stall owner stays offline during automatic restocking.
+- Fix item search in the bulk-grant list and GM item picker with the bundled Python 3.8 runtime. Searching for the Ancient Spirit elixir returns item 7440.
+- GM 强制下线只移除选中的城镇假人或摆摊假人。已下线的摊主在自动补货时保持下线。
+- 修复 Python 3.8 下批量发放列表和 GM 道具选择器的查询错误。搜索远古精灵的秘药会返回编号 7440。
+
 ## v2.6.0-preview.45 — 2026-11-29
 
 - Scale the game and chat panes together using point sampling and DPI-aware output. Correct the bottom menu, Lorien hotbar backgrounds and overlapping dungeon minimaps.

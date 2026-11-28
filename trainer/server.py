@@ -426,8 +426,12 @@ async def edit_inventory(body):
             await s.barrier();return await apply()
     return await apply()
 
-def compact_item(i):
-    return {k:i.get(k) for k in ('id','name','category','rarity','level','durability','stackLimit','sendable','subtype','stackable','jobs')}|{'icon':bool(i.get('icon'))}
+def compact_item(item):
+    fields = ('id', 'name', 'category', 'rarity', 'level', 'durability',
+              'stackLimit', 'sendable', 'subtype', 'stackable', 'jobs')
+    result = {field: item.get(field) for field in fields}
+    result['icon'] = bool(item.get('icon'))
+    return result
 
 def item_detail(id):
     item=ITEMS.get(id)

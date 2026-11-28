@@ -11,7 +11,7 @@ if($Windows7Runtime -and !(Test-Path -LiteralPath (Join-Path $taskInstall 'runti
 & (Join-Path $taskInstall 'runtime\python\python.exe') -B (Join-Path $PSScriptRoot 'setup\localization\repair_shared_sprites.py') $taskInstall
 if($LASTEXITCODE-ne 0){throw 'Shared sprite build failed.'}
 & (Join-Path $taskInstall 'runtime\python\python.exe') -B (Join-Path $PSScriptRoot 'setup\portable\fix_population_settings.py') $taskInstall
-if($LASTEXITCODE-ne 0){throw 'Server population patch failed.'}
+if($LASTEXITCODE-ne 0){throw 'ACT12 server patch failed.'}
 $taskDefine=if($Windows7Runtime){'/define:PORTABLE,WINDOWS7_RUNTIME'}else{'/define:PORTABLE'}
 $taskCommon=@('/nologo','/target:winexe','/platform:anycpu',$taskDefine,"/win32icon:$taskIcon","/win32manifest:$taskManifest",'/reference:System.Windows.Forms.dll','/reference:System.Drawing.dll','/reference:System.Web.Extensions.dll')
 $taskPortable=Join-Path $PSScriptRoot 'setup\portable'

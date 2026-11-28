@@ -1,7 +1,7 @@
 {
-  "version": "2.6.0-preview.45",
+  "version": "2.6.0-preview.46",
   "checkedOn": "2026-11-29, Windows 11 build 26300",
-  "automatedTestsCheckedIn": "2.6.0-preview.45",
+  "automatedTestsCheckedIn": "2.6.0-preview.46",
   "automatedTestsPassed": 38,
   "startupDiagnosticChecksPassed": 8,
   "languagePackHashesVerified": [
@@ -190,7 +190,8 @@
     "originalFiveMinuteCooldownFeedbackObserved": true,
     "gameplayInputNativeTestsPassed": true
   },
-  "releaseRegression": {
+  "priorReleaseRegression": {
+    "version": "2.6.0-preview.45",
     "automatedTestsPassedPerBundledRuntime": {
       "standard": 38,
       "win7Test": 38
@@ -284,6 +285,117 @@
       "crashReproducedInAct12": false,
       "reportedAct1GamePackageAvailable": false
     },
+    "targetWindows7MachineTested": false
+  },
+  "releaseRegression": {
+    "automatedTestsPassedPerBundledRuntime": {
+      "standard": 38,
+      "win7": 38
+    },
+    "firstRunAndStartup": {
+      "standard": {
+        "variant": "standard",
+        "windowsBuild": 26300,
+        "freshIdentity": true,
+        "startupChecks": 8,
+        "diagnosticBitness": 64,
+        "compatibilityLoginBitness": 64,
+        "compatibilityBackend": "login_service_x64_compat",
+        "loginPort": 19099,
+        "managementPort": 18080,
+        "nativeServerReady": true,
+        "backupCreated": true,
+        "individualSignout": [
+          {
+            "case": "companion",
+            "before": 1342,
+            "after": 1341,
+            "targetLeft": true,
+            "sameOtherActors": true,
+            "targetPresenceCleared": true
+          },
+          {
+            "case": "companion",
+            "before": 1341,
+            "after": 1340,
+            "targetLeft": true,
+            "sameOtherActors": true,
+            "targetPresenceCleared": true
+          },
+          {
+            "case": "stall",
+            "before": 365,
+            "after": 364,
+            "targetLeft": true,
+            "sameOtherActors": true,
+            "targetPresenceCleared": true
+          }
+        ],
+        "targetedNativeSignoutAfterRestock": true,
+        "initialMarketStockingRetried": true
+      },
+      "win7": {
+        "variant": "win7",
+        "windowsBuild": 26300,
+        "freshIdentity": true,
+        "startupChecks": 8,
+        "diagnosticBitness": 64,
+        "compatibilityLoginBitness": 64,
+        "compatibilityBackend": "login_service_x64_compat",
+        "loginPort": 19099,
+        "managementPort": 18080,
+        "nativeServerReady": true,
+        "backupCreated": true,
+        "individualSignout": [
+          {
+            "case": "companion",
+            "before": 1342,
+            "after": 1341,
+            "targetLeft": true,
+            "sameOtherActors": true,
+            "targetPresenceCleared": true
+          },
+          {
+            "case": "companion",
+            "before": 1341,
+            "after": 1340,
+            "targetLeft": true,
+            "sameOtherActors": true,
+            "targetPresenceCleared": true
+          },
+          {
+            "case": "stall",
+            "before": 365,
+            "after": 364,
+            "targetLeft": true,
+            "sameOtherActors": true,
+            "targetPresenceCleared": true
+          }
+        ],
+        "targetedNativeSignoutAfterRestock": true,
+        "initialMarketStockingRetried": false
+      }
+    },
+    "itemSearch": {
+      "standard": {
+        "bundledPython": "3.14.5",
+        "bulkGrantList": true,
+        "gmItemPicker": true,
+        "elixirId": 7440,
+        "oldId7377ResolvesTo7440": true,
+        "duplicateIdsHidden": 94
+      },
+      "win7": {
+        "bundledPython": "3.8.10",
+        "bulkGrantList": true,
+        "gmItemPicker": true,
+        "elixirId": 7440,
+        "oldId7377ResolvesTo7440": true,
+        "duplicateIdsHidden": 94
+      }
+    },
+    "nativeServerSha256": "bf14be43200cc9e5952822e2a2ea954f8f7c04281760775fd6a1a5f16d1c8779",
+    "gameMenuClickTested": false,
     "targetWindows7MachineTested": false
   }
 }

@@ -6,7 +6,7 @@ A portable Windows ACT12 / level-60 local game package with a name-only account 
 
 **[Windows download](https://github.com/a16036868481/AradHomeward/releases)** · **[Illustrated user guide](docs/USAGE.en.md)** · **[中文图文说明](docs/USAGE.zh-CN.md)**
 
-`AradHomeward-v2.6.0-preview.45-win-x64.zip` is the full Windows 10 and 11 package with the game, local server, native editor and LAN rooms. The same release includes a separate Windows 7 SP1 x64 compatibility test package.
+`AradHomeward-v2.6.0-preview.46-win-x64.zip` is the full Windows 10 and 11 package with the game, local server, native editor and LAN rooms. The same release includes a separate Windows 7 SP1 x64 compatibility test package.
 
 Extract into a new folder to try the release while preserving any existing installation and saves. Open `AradHomeward.exe` in the top-level folder.
 
@@ -36,7 +36,7 @@ The standard package requires **Windows 10 (1607 or later) or Windows 11, 64-bit
 
 ## Current release status
 
-**v2.6.0-preview.45** improves scaling for the game and chat panes, fixes dungeon HUD and minimap rendering, and restores character visibility after the first town quest guide is skipped. The trainer uses the working Ancient Spirit elixir (7440), and the town population and material stall settings take effect after saving.
+**v2.6.0-preview.46** fixes GM forced sign-out for individual town companions and market stall owners. It also fixes the bulk-grant list and GM item picker in the Windows 7 SP1 compatibility package. The trainer lists the Ancient Spirit elixir as item 7440.
 
 The launcher uses a bundled x64 compatibility login service if Windows lacks `QueueUserAPC2`. The Windows 7 SP1 x64 test package uses the x64 .NET 6 login service. Both paths passed a Windows 11 test with the API reported unavailable. Testing on Windows 7 and the affected Windows 10 build is pending. [Validation](VALIDATION.json)
 
